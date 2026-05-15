@@ -58,7 +58,7 @@ window.doLogin = function() {
   const pin = document.getElementById('login-pin').value.trim();
   if (!pin) return;
 
-  const coach = Object.entries(allCoaches).find(([id, c]) => c.pin === pin);
+  const coach = Object.entries(allCoaches).find(([id, c]) => String(c.pin) === String(pin));
   if (!coach) {
     document.getElementById('login-error').textContent = 'Incorrect PIN. Try again.';
     document.getElementById('login-pin').value = '';
