@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRTFC Academy IDP Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green:      #2A8C3F;
+  --green-dark: #1a5c28;
+  --green-light:#e8f5ec;
+  --gold:       #B8922A;
+  --gold-light: #f9f2e3;
+  --red:        #C0272D;
+  --text:       #1a1a18;
+  --text2:      #5a5956;
+  --text3:      #9b9a96;
+  --bg:         #f4f4f2;
+  --white:      #ffffff;
+  --border:     rgba(0,0,0,0.1);
+  --radius:     8px;
+  --radius-lg:  14px;
+  --shadow:     0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.15);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.page-header { background: var(--green-dark); color: #fff; padding: 14px 2rem; display: flex; align-items: center; gap: 12px; }
+.page-header img { width: 36px; height: 36px; object-fit: contain; }
+.page-header-title { font-size: 16px; font-weight: 700; }
+.page-header-sub { font-size: 12px; opacity: 0.7; }
+.back-btn { margin-left: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 6px 14px; border-radius: var(--radius); font-size: 13px; cursor: pointer; text-decoration: none; }
+
+/* CONTROLS */
+.controls { max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; }
+.controls-card { background: var(--white); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+.controls-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 1rem; }
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.form-row > * { flex: 1; min-width: 140px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+label { font-size: 13px; font-weight: 500; color: var(--text2); }
+select, input { padding: 8px 10px; font-size: 14px; border: 1px solid rgba(0,0,0,0.18); border-radius: var(--radius); background: #f7f6f3; color: var(--text); width: 100%; font-family: inherit; }
+select:focus, input:focus { outline: none; border-color: var(--green); }
+.btn-generate { background: var(--green); color: #fff; border: none; padding: 11px 28px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.btn-generate:hover { background: var(--green-dark); }
+.btn-secondary { background: transparent; border: 1px solid rgba(0,0,0,0.18); color: var(--text); padding: 11px 20px; border-radius: var(--radius); font-size: 14px; cursor: pointer; }
+.status-msg { font-size: 13px; margin-top: 10px; color: var(--green); min-height: 18px; }
+
+/* IDP PREVIEW */
+.idp-preview { max-width: 900px; margin: 0 auto 3rem; padding: 0 1rem; }
+.idp-page { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); margin-bottom: 2rem; overflow: hidden; }
+
+/* PAGE 1: COVER */
+.cover-band { background: var(--green-dark); padding: 2.5rem 2.5rem 2rem; position: relative; overflow: hidden; }
+.cover-band::before { content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,0.04); }
+.cover-band::after { content: ''; position: absolute; bottom: -40px; left: 40%; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,0.03); }
+.cover-top { display: flex; align-items: flex-start; gap: 1.5rem; margin-bottom: 1.5rem; }
+.cover-crest { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+.cover-club-info { }
+.cover-club { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.65); margin-bottom: 4px; }
+.cover-doc-type { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.1; margin-bottom: 4px; }
+.cover-term { font-size: 14px; color: rgba(255,255,255,0.75); font-weight: 500; }
+.cover-divider { height: 1px; background: rgba(255,255,255,0.15); margin: 1.25rem 0; }
+.cover-player-name { font-size: 36px; font-weight: 800; color: #fff; margin-bottom: 8px; line-height: 1; }
+.cover-meta { display: flex; gap: 2rem; flex-wrap: wrap; }
+.cover-meta-item { }
+.cover-meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); margin-bottom: 3px; }
+.cover-meta-value { font-size: 15px; font-weight: 600; color: #fff; }
+.cover-overall { background: var(--white); margin: 0 2.5rem; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+.overall-score { display: flex; flex-direction: column; align-items: center; }
+.overall-score-val { font-size: 52px; font-weight: 900; color: var(--green-dark); line-height: 1; }
+.overall-score-max { font-size: 18px; color: var(--text3); font-weight: 500; }
+.overall-score-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-top: 4px; }
+.overall-breakdown { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ob-item { }
+.ob-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; font-weight: 500; }
+.ob-bar-track { height: 6px; background: #eee; border-radius: 99px; overflow: hidden; }
+.ob-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+.ob-val { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.page-body { padding: 1.5rem 2.5rem 2rem; }
+
+/* SECTION */
+.idp-section { margin-bottom: 2rem; }
+.section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 8px; border-bottom: 2px solid var(--green-light); }
+.section-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--green); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.section-title { font-size: 14px; font-weight: 700; color: var(--green-dark); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* RATING ROWS */
+.rating-row { display: flex; align-items: flex-start; gap: 1rem; padding: 12px 0; border-bottom: 1px solid #f0efeb; }
+.rating-row:last-child { border-bottom: none; }
+.rating-label-col { width: 160px; flex-shrink: 0; }
+.rating-attr-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.rating-attr-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.rating-bar-col { flex: 1; }
+.rating-bar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.rating-score { font-size: 15px; font-weight: 700; color: var(--green-dark); }
+.rating-score-max { font-size: 12px; color: var(--text3); }
+.rating-bar-track { height: 8px; background: #eee; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+.rating-bar-fill { height: 100%; border-radius: 99px; }
+.rating-meaning { font-size: 12px; color: var(--text2); font-style: italic; line-height: 1.4; }
+.rating-comments { font-size: 13px; color: var(--text); background: var(--green-light); border-left: 3px solid var(--green); border-radius: 0 var(--radius) var(--radius) 0; padding: 8px 12px; margin-top: 6px; line-height: 1.55; }
+
+/* GOALS */
+.goals-grid { display: flex; flex-direction: column; gap: 14px; }
+.goal-card { border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.goal-card-header { background: var(--green-dark); color: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+.goal-number { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.goal-card-title { font-size: 14px; font-weight: 600; flex: 1; }
+.goal-status { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
+.goal-status-achieved { background: #fff; color: var(--green-dark); }
+.goal-status-progress { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.goal-card-body { padding: 14px 16px; background: var(--white); }
+.goal-set-by { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+.goal-reflect-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--green); margin-bottom: 6px; }
+.goal-reflect-box { border: 1px dashed rgba(0,0,0,0.2); border-radius: var(--radius); padding: 10px 12px; min-height: 50px; background: #fafaf8; }
+.goal-reflect-prompt { font-size: 12px; color: var(--text3); font-style: italic; }
+
+/* IDP FOOTER */
+.idp-footer { background: var(--green-dark); padding: 12px 2.5rem; display: flex; align-items: center; justify-content: space-between; }
+.idp-footer-left { display: flex; align-items: center; gap: 10px; }
+.idp-footer-crest { width: 24px; height: 24px; object-fit: contain; opacity: 0.8; }
+.idp-footer-text { font-size: 11px; color: rgba(255,255,255,0.65); }
+.idp-footer-right { font-size: 11px; color: rgba(255,255,255,0.5); font-style: italic; }
+
+/* RATING COLOUR HELPERS */
+.fill-1 { background: #e74c3c; }
+.fill-2 { background: #e67e22; }
+.fill-3 { background: #f1c40f; }
+.fill-4 { background: #2ecc71; }
+.fill-5 { background: #27ae60; }
+
+/* GOLD ACCENT FOR ACHIEVED GOALS */
+.goal-card.achieved .goal-card-header { background: var(--gold); }
+.goal-card.achieved .goal-number { background: rgba(255,255,255,0.25); }
+
+/* EMPTY */
+.empty-state { text-align: center; padding: 3rem; color: var(--text3); font-size: 14px; }
+.loading { text-align: center; padding: 2rem; color: var(--text2); font-size: 14px; }
+
+@media print {
+  .controls, .page-header, .back-btn { display: none !important; }
+  .idp-preview { margin: 0; padding: 0; }
+  .idp-page { box-shadow: none; border-radius: 0; page-break-after: always; margin-bottom: 0; }
+}
+@media (max-width: 600px) {
+  .cover-band, .page-body { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .cover-overall { margin: 0 1.25rem; padding: 1rem; }
+  .cover-player-name { font-size: 26px; }
+  .rating-row { flex-direction: column; gap: 6px; }
+  .rating-label-col { width: 100%; }
+  .idp-footer { padding: 10px 1.25rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <img src="images/crest.png" alt="BRTFC">
+  <div>
+    <div class="page-header-title">IDP Generator</div>
+    <div class="page-header-sub">Individual Development Plan</div>
+  </div>
+  <a href="index.html" class="back-btn">← Back to app</a>
+</div>
+
+<div class="controls">
+  <div class="controls-card">
+    <div class="controls-title">Generate IDP</div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div class="form-group">
+        <label>Age group</label>
+        <select id="gen-group" onchange="loadGenPlayers()">
+          <option value="">Select group...</option>
+          <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Player</label>
+        <select id="gen-player" onchange="generateIDP()">
+          <option value="">Select player...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Term</label>
+        <select id="gen-term" onchange="generateIDP()">
+          <option value="1">Term 1 (Aug-Oct)</option>
+          <option value="2">Term 2 (Nov-Jan)</option>
+          <option value="3">Term 3 (Feb-Apr)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn-generate" onclick="generateIDP()">&#9654; Preview IDP</button>
+      <button class="btn-secondary" onclick="downloadPDF()">&#8595; Download PDF</button>
+      <button class="btn-secondary" onclick="window.print()">&#9113; Print</button>
+    </div>
+    <div id="gen-status" class="status-msg"></div>
+  </div>
+</div>
+
+<div class="idp-preview" id="idp-preview">
+  <div class="empty-state">Select a player and term to generate their IDP.</div>
+</div>
+
+<script type="module">
+import { db, ref, onValue } from './js/firebase.js';
+
+let allPlayers  = {};
+let allCoaches  = {};
+let allTraining = {};
+let allMatches  = {};
+let allMonthly  = {};
+let allGoals    = {};
+let termDates   = { 1:{start:'',end:''}, 2:{start:'',end:''}, 3:{start:'',end:''} };
+
+onValue(ref(db,'players'),   s => { allPlayers  = s.val()||{}; });
+onValue(ref(db,'coaches'),   s => { allCoaches  = s.val()||{}; });
+onValue(ref(db,'training'),  s => { allTraining = s.val()||{}; });
+onValue(ref(db,'matches'),   s => { allMatches  = s.val()||{}; });
+onValue(ref(db,'monthly'),   s => { allMonthly  = s.val()||{}; });
+onValue(ref(db,'goals'),     s => { allGoals    = s.val()||{}; });
+onValue(ref(db,'termDates'), s => { if(s.val()) termDates = s.val(); });
+
+window.loadGenPlayers = function() {
+  const group = document.getElementById('gen-group').value;
+  const sel   = document.getElementById('gen-player');
+  sel.innerHTML = '<option value="">Select player...</option>';
+  if (!group) return;
+  Object.entries(allPlayers)
+    .filter(([id,p]) => p.group === group)
+    .sort((a,b) => a[1].lname.localeCompare(b[1].lname))
+    .forEach(([id,p]) => sel.innerHTML += `<option value="${id}">${p.fname} ${p.lname}</option>`);
+};
+
+window.generateIDP = function() {
+  const pid    = document.getElementById('gen-player').value;
+  const termNo = parseInt(document.getElementById('gen-term').value);
+  const preview = document.getElementById('idp-preview');
+  if (!pid) { preview.innerHTML = '<div class="empty-state">Select a player and term to generate their IDP.</div>'; return; }
+  const p = allPlayers[pid];
+  if (!p) return;
+
+  const termLabels = { 1:'Term 1 (Aug-Oct)', 2:'Term 2 (Nov-Jan)', 3:'Term 3 (Feb-Apr)' };
+  const termLabel  = termLabels[termNo];
+  const termRange  = getTermRange(termNo);
+
+  const trainSessions = Object.values(allTraining).filter(t => t.entries?.[pid] && inRange(t.date, termRange));
+  const matchSessions = Object.values(allMatches).filter(m => m.entries?.[pid] && inRange(m.date, termRange));
+  const monthlyReps   = Object.values(allMonthly).filter(mo => mo.pid===pid && inRange((mo.month||'')+'-01', termRange));
+  const goals         = Object.entries(allGoals).filter(([id,g]) => g.pid===pid);
+
+  const trainPerfAvg = avg(trainSessions.map(t => t.entries[pid].performance));
+  const trainAttAvg  = avg(trainSessions.map(t => t.entries[pid].attitude));
+  const matchPerfAvg = avg(matchSessions.map(m => m.entries[pid].performance));
+  const matchTactAvg = avg(matchSessions.map(m => m.entries[pid].tactical));
+  const matchBehAvg  = avg(matchSessions.map(m => m.entries[pid].behaviours));
+
+  const moCats = ['technical','tactical','behaviours','physical'];
+  const moData = {};
+  moCats.forEach(cat => {
+    moData[cat] = {
+      rating: avg(monthlyReps.map(r => r[cat]?.rating||0).filter(v=>v>0)),
+      comments: monthlyReps.map(r => r[cat]?.comments).filter(Boolean).join(' ')
+    };
+  });
+
+  const allRatings = [trainPerfAvg, trainAttAvg, matchPerfAvg, matchTactAvg, matchBehAvg,
+    moData.technical.rating, moData.tactical.rating, moData.behaviours.rating, moData.physical.rating
+  ].filter(v => v > 0);
+  const overall = allRatings.length ? (allRatings.reduce((a,b)=>a+b,0)/allRatings.length).toFixed(1) : null;
+
+  const age = p.dob ? calcAge(p.dob) : 'N/A';
+  const year = new Date().getFullYear();
+  const generated = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+
+  const ratingMeaning = v => {
+    if (!v) return 'No data recorded this term.';
+    const n = parseFloat(v);
+    if (n >= 4.5) return 'Outstanding. Consistently performing at the top of your ability.';
+    if (n >= 3.5) return 'Strong. Regular high-level performances with minor areas to refine.';
+    if (n >= 2.5) return 'Developing. Showing good moments but consistency needs work.';
+    if (n >= 1.5) return 'Needs focus. This is a clear area to prioritise in training.';
+    return 'Requires significant improvement. Your coaches will work with you on this.';
+  };
+
+  const barColour = v => {
+    if (!v) return 'fill-3';
+    const n = parseFloat(v);
+    if (n >= 4.5) return 'fill-5';
+    if (n >= 3.5) return 'fill-4';
+    if (n >= 2.5) return 'fill-3';
+    if (n >= 1.5) return 'fill-2';
+    return 'fill-1';
+  };
+
+  const ratingRow = (name, subtext, val, comments='') => {
+    if (!val) return '';
+    const pct = Math.round((parseFloat(val)/5)*100);
+    return `<div class="rating-row">
+      <div class="rating-label-col">
+        <div class="rating-attr-name">${name}</div>
+        <div class="rating-attr-desc">${subtext}</div>
+      </div>
+      <div class="rating-bar-col">
+        <div class="rating-bar-top">
+          <span class="rating-score">${val}<span class="rating-score-max">/5</span></span>
+        </div>
+        <div class="rating-bar-track">
+          <div class="rating-bar-fill ${barColour(val)}" style="width:${pct}%"></div>
+        </div>
+        <div class="rating-meaning">${ratingMeaning(val)}</div>
+        ${comments ? `<div class="rating-comments">${comments}</div>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const obBar = (label, val) => {
+    if (!val) return '';
+    const pct = Math.round((parseFloat(val)/5)*100);
+    return `<div class="ob-item">
+      <div class="ob-label">${label}</div>
+      <div class="ob-bar-track"><div class="ob-bar-fill" style="width:${pct}%"></div></div>
+      <div class="ob-val">${val}/5</div>
+    </div>`;
+  };
+
+  preview.innerHTML = `
+    <div class="idp-page" id="idp-doc">
+
+      <!-- COVER BAND -->
+      <div class="cover-band">
+        <div class="cover-top">
+          <img src="images/crest.png" alt="BRTFC" class="cover-crest">
+          <div class="cover-club-info">
+            <div class="cover-club">Bognor Regis Town Football Club</div>
+            <div class="cover-doc-type">Individual<br>Development Plan</div>
+            <div class="cover-term">${termLabel} &bull; ${year}</div>
+          </div>
+        </div>
+        <div class="cover-divider"></div>
+        <div class="cover-player-name">${p.fname} ${p.lname}</div>
+        <div class="cover-meta">
+          <div class="cover-meta-item"><div class="cover-meta-label">Age group</div><div class="cover-meta-value">${p.group}</div></div>
+          <div class="cover-meta-item"><div class="cover-meta-label">Position</div><div class="cover-meta-value">${p.pos}</div></div>
+          <div class="cover-meta-item"><div class="cover-meta-label">Date of birth</div><div class="cover-meta-value">${p.dob || 'N/A'}</div></div>
+          <div class="cover-meta-item"><div class="cover-meta-label">Age</div><div class="cover-meta-value">${age}</div></div>
+          <div class="cover-meta-item"><div class="cover-meta-label">Sessions</div><div class="cover-meta-value">${trainSessions.length}</div></div>
+          <div class="cover-meta-item"><div class="cover-meta-label">Matches</div><div class="cover-meta-value">${matchSessions.length}</div></div>
+        </div>
+      </div>
+
+      <!-- OVERALL SCORE -->
+      <div class="cover-overall">
+        <div class="overall-score">
+          <div>
+            <span class="overall-score-val">${overall || 'N/A'}</span>
+            ${overall ? '<span class="overall-score-max">/5</span>' : ''}
+          </div>
+          <div class="overall-score-lbl">Overall rating</div>
+        </div>
+        <div class="overall-breakdown">
+          ${obBar('Training performance', trainPerfAvg)}
+          ${obBar('Training attitude', trainAttAvg)}
+          ${obBar('Match performance', matchPerfAvg)}
+          ${obBar('Tactical understanding', matchTactAvg)}
+        </div>
+      </div>
+
+      <div class="page-body">
+
+        <!-- TRAINING -->
+        ${trainSessions.length ? `
+        <div class="idp-section">
+          <div class="section-header">
+            <div class="section-icon">🏃</div>
+            <div class="section-title">Training performance</div>
+          </div>
+          ${ratingRow('Performance', 'Your overall contribution in training sessions', trainPerfAvg)}
+          ${ratingRow('Attitude', 'Your approach, effort and mentality in training', trainAttAvg)}
+        </div>` : ''}
+
+        <!-- MATCH -->
+        ${matchSessions.length ? `
+        <div class="idp-section">
+          <div class="section-header">
+            <div class="section-icon">⚽</div>
+            <div class="section-title">Match performance</div>
+          </div>
+          ${ratingRow('Performance', 'Your overall effectiveness in matches', matchPerfAvg)}
+          ${ratingRow('Tactical understanding', 'How well you applied the team game plan', matchTactAvg)}
+          ${ratingRow('Behaviours', 'Your conduct and attitude on matchday', matchBehAvg)}
+        </div>` : ''}
+
+        <!-- MONTHLY ASSESSMENT -->
+        ${monthlyReps.length ? `
+        <div class="idp-section">
+          <div class="section-header">
+            <div class="section-icon">📋</div>
+            <div class="section-title">Detailed assessment</div>
+          </div>
+          ${ratingRow('Technical', 'Ball skills, passing, shooting, control', moData.technical.rating, moData.technical.comments)}
+          ${ratingRow('Tactical', 'Decision making, positioning, game understanding', moData.tactical.rating, moData.tactical.comments)}
+          ${ratingRow('Behaviours', 'Attitude, effort, coachability, leadership', moData.behaviours.rating, moData.behaviours.comments)}
+          ${ratingRow('Physical', 'Pace, strength, stamina, agility', moData.physical.rating, moData.physical.comments)}
+        </div>` : ''}
+
+        <!-- GOALS -->
+        <div class="idp-section">
+          <div class="section-header">
+            <div class="section-icon">🎯</div>
+            <div class="section-title">Development goals</div>
+          </div>
+          ${goals.length ? `
+          <div class="goals-grid">
+            ${goals.slice(0,2).map(([id,g],i) => `
+              <div class="goal-card ${g.achieved ? 'achieved' : ''}">
+                <div class="goal-card-header">
+                  <div class="goal-number">${i+1}</div>
+                  <div class="goal-card-title">${g.text}</div>
+                  <span class="goal-status ${g.achieved ? 'goal-status-achieved' : 'goal-status-progress'}">
+                    ${g.achieved ? '✓ Achieved' : 'In progress'}
+                  </span>
+                </div>
+                <div class="goal-card-body">
+                  <div class="goal-set-by">Set by your coaching team</div>
+                  <div class="goal-reflect-label">Your reflection</div>
+                  <div class="goal-reflect-box">
+                    <div class="goal-reflect-prompt">What steps are you taking to achieve this goal? Write your thoughts here.</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>` : '<div style="font-size:14px;color:var(--text3);">No goals set for this term yet. Speak to your coach.</div>'}
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="idp-footer">
+        <div class="idp-footer-left">
+          <img src="images/crest.png" alt="BRTFC" class="idp-footer-crest">
+          <div class="idp-footer-text">Bognor Regis Town FC Academy &bull; ${p.fname} ${p.lname} &bull; ${termLabel} ${year}</div>
+        </div>
+        <div class="idp-footer-right">Generated ${generated} &bull; Confidential</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('gen-status').textContent = 'IDP generated. Use Download PDF or Print to save.';
+};
+
+window.downloadPDF = function() {
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) { alert('PDF library not loaded.'); return; }
+  document.getElementById('gen-status').textContent = 'Preparing PDF...';
+  window.print();
+  document.getElementById('gen-status').textContent = 'Use your browser print dialog to save as PDF.';
+};
+
+function getTermRange(n) {
+  const t = termDates[n];
+  if (t?.start && t?.end) return { start: t.start, end: t.end };
+  const y = new Date().getFullYear();
+  const d = { 1:{start:`${y}-08-01`,end:`${y}-10-31`}, 2:{start:`${y}-11-01`,end:`${y+1}-01-31`}, 3:{start:`${y+1}-02-01`,end:`${y+1}-04-30`} };
+  return d[n] || d[1];
+}
+
+function inRange(dateStr, range) {
+  if (!dateStr) return false;
+  return dateStr >= range.start && dateStr <= range.end;
+}
+
+function avg(vals) {
+  const clean = (vals||[]).filter(v => v > 0);
+  if (!clean.length) return null;
+  return (clean.reduce((a,b)=>a+b,0)/clean.length).toFixed(1);
+}
+
+function calcAge(dob) {
+  const b = new Date(dob), now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  if (now.getMonth() < b.getMonth() || (now.getMonth()===b.getMonth() && now.getDate()<b.getDate())) age--;
+  return age;
+}
+</script>
+</body>
+</html>

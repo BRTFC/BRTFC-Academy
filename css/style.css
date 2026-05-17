@@ -221,3 +221,17 @@ textarea { min-height: 80px; resize: vertical; }
 }
 
 .login-crest-img { width: 100px; height: 100px; object-fit: contain; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto; }
+
+/* DNA COMPLIANCE */
+.dna-check-group { display: flex; flex-direction: column; gap: 14px; }
+.dna-check-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dna-check-label { font-size: 14px; color: var(--text); flex: 1; min-width: 200px; }
+.dna-toggle-group { display: flex; gap: 0; border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+.dna-toggle { padding: 7px 14px; font-size: 13px; font-weight: 500; border: none; border-right: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; }
+.dna-toggle:last-child { border-right: none; }
+.dna-toggle.active-yes { background: #2A8C3F; color: #fff; }
+.dna-toggle.active-partly { background: #ef9f27; color: #fff; }
+.dna-toggle.active-no { background: #C0272D; color: #fff; }
+
+/* PHASE NOTICE */
+.phase-notice { display: none; font-size: 13px; font-weight: 500; color: var(--green-dark); background: var(--green-light); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 12px; }

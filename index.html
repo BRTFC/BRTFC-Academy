@@ -37,7 +37,7 @@
     <button class="nav-btn active" data-view="players" onclick="switchView('players',this)">Players</button>
     <button class="nav-btn" data-view="training" onclick="switchView('training',this)">Training</button>
     <button class="nav-btn" data-view="match" onclick="switchView('match',this)">Match</button>
-    <button class="nav-btn" data-view="monthly" onclick="switchView('monthly',this)">Monthly</button>
+    <button class="nav-btn" data-view="monthly" onclick="switchView('monthly',this)">Reviews</button>
     <button class="nav-btn" data-view="idp" onclick="switchView('idp',this)">IDP</button>
     <button class="nav-btn nav-admin hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
   </nav>
@@ -82,6 +82,28 @@
             </select>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Curriculum block</label>
+            <select id="tr-block">
+              <option value="">Select block...</option>
+              <option value="1">Block 1: Build and Progress</option>
+              <option value="2">Block 2: Create and Exploit Space</option>
+              <option value="3">Block 3: Final Third Effectiveness</option>
+              <option value="4">Block 4: Press and Regain</option>
+              <option value="5">Block 5: Defend and Transition</option>
+              <option value="6">Block 6: Game Control and Compete</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Micro-cycle phase</label>
+            <select id="tr-cycle">
+              <option value="recognition">Week 1: Recognition</option>
+              <option value="execution">Week 2: Execution</option>
+              <option value="application">Week 3: Timing and Application</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div id="tr-players-container">
         <div class="empty-state">Select an age group to load players.</div>
@@ -123,25 +145,57 @@
       <div id="mr-players-container">
         <div class="empty-state">Select an age group to load players.</div>
       </div>
+      <div class="form-card" style="border-left:4px solid #2A8C3F;">
+        <div class="form-section-title">DNA compliance check</div>
+        <p style="font-size:13px;color:#5a5956;margin-bottom:1rem;">Rate your team as a whole on today's match. Three questions, one tap each.</p>
+        <div class="dna-check-group">
+          <div class="dna-check-item">
+            <div class="dna-check-label">Did we press high and win the ball in the opponent's half?</div>
+            <div class="dna-toggle-group" id="dna-press">
+              <button class="dna-toggle" onclick="setDNA('dna-press','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-press','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-press','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-label">Did we attack quickly after winning possession?</div>
+            <div class="dna-toggle-group" id="dna-transition">
+              <button class="dna-toggle" onclick="setDNA('dna-transition','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-transition','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-transition','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-label">Did we control tempo through deliberate possession?</div>
+            <div class="dna-toggle-group" id="dna-control">
+              <button class="dna-toggle" onclick="setDNA('dna-control','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-control','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-control','no',this)">No</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="form-actions">
         <button class="btn-primary" onclick="saveMatchReport()">Save match report</button>
       </div>
     </div>
 
-    <!-- MONTHLY REPORT -->
+    <!-- HALF-TERM REVIEW -->
     <div id="view-monthly" class="view hidden">
       <div class="form-card">
-        <div class="form-section-title">Monthly report details</div>
+        <div class="form-section-title">Half-term review</div>
+        <div class="phase-notice" id="ht-phase-notice"></div>
         <div class="form-row">
           <div class="form-group">
-            <label>Month</label>
-            <input type="month" id="mo-month">
+            <label>Half term</label>
+            <select id="mo-month" onchange="loadMonthlyPlayers()">
+              <option value="">Select half term...</option>
+            </select>
           </div>
           <div class="form-group">
             <label>Age group</label>
             <select id="mo-group" onchange="loadMonthlyPlayers()">
               <option value="">Select group...</option>
-              <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
             </select>
           </div>
           <div class="form-group">
@@ -181,6 +235,7 @@
         <button class="admin-tab" onclick="switchAdminTab('players',this)">Players</button>
         <button class="admin-tab" onclick="switchAdminTab('import',this)">Import players</button>
         <button class="admin-tab" onclick="switchAdminTab('terms',this)">Terms</button>
+        <button class="admin-tab" onclick="switchAdminTab('halfterms',this)">Half terms</button>
       </div>
 
       <!-- COACHES TAB -->
@@ -191,6 +246,13 @@
             <div class="form-group"><label>Name</label><input type="text" id="ac-name" placeholder="e.g. Dave Wilson"></div>
             <div class="form-group"><label>PIN (4-8 digits)</label><input type="password" id="ac-pin" maxlength="8" placeholder="e.g. 4821"></div>
             <div class="form-group"><label>Role</label><input type="text" id="ac-role" placeholder="e.g. U16 Lead Coach"></div>
+            <div class="form-group"><label>Phase</label>
+              <select id="ac-phase">
+                <option value="both">Both phases</option>
+                <option value="1">Phase 1 (U14 and U15)</option>
+                <option value="2">Phase 2 (U16 and U18)</option>
+              </select>
+            </div>
             <div class="form-group"><label>Admin access</label>
               <select id="ac-admin"><option value="false">No</option><option value="true">Yes</option></select>
             </div>
@@ -251,6 +313,20 @@
           <div id="term-fields"></div>
           <button class="btn-primary" onclick="saveTermDates()">Save term dates</button>
           <div id="terms-status" class="status-msg"></div>
+        </div>
+      </div>
+
+      <!-- HALF TERMS TAB -->
+      <div id="admin-halfterms" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Half-term review windows</div>
+          <p class="help-text">Define up to 6 half-term windows. Each becomes a selectable period in the Half-Term Review tab. Use 6-week blocks aligned to your season.</p>
+          <div id="halfterm-fields"></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn-primary" onclick="saveHalfTerms()">Save half terms</button>
+            <button class="btn-secondary" onclick="addHalfTermRow()">+ Add window</button>
+          </div>
+          <div id="halfterms-status" class="status-msg"></div>
         </div>
       </div>
 

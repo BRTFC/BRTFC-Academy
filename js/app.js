@@ -9,6 +9,7 @@ let allTraining  = {};
 let allMatches   = {};
 let allMonthly   = {};
 let allGoals     = {};
+let halfTerms    = {};
 let termDates    = {
   1: { start: '', end: '' },
   2: { start: '', end: '' },
@@ -17,6 +18,21 @@ let termDates    = {
 let activePlayerFilter = 'all';
 
 const POSITIONS = ['GK','CB','RB','LB','CDM','CM','CAM','RW','LW','ST'];
+
+const PHASE_GROUPS = {
+  '1':    ['U14','U15'],
+  '2':    ['U16','U18'],
+  'both': ['U14','U15','U16','U18']
+};
+
+function coachPhaseGroups() {
+  const phase = currentCoach?.phase || 'both';
+  return PHASE_GROUPS[phase] || PHASE_GROUPS['both'];
+}
+
+function groupInCoachPhase(group) {
+  return coachPhaseGroups().includes(group);
+}
 
 // ── BOOT ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -47,6 +63,7 @@ function listenData() {
   onValue(ref(db, 'matches'),   s => { allMatches  = s.val() || {}; });
   onValue(ref(db, 'monthly'),   s => { allMonthly  = s.val() || {}; });
   onValue(ref(db, 'goals'),     s => { allGoals    = s.val() || {}; });
+  onValue(ref(db, 'halfTerms'), s => { halfTerms = s.val() || {}; populateHalfTermSelects(); renderHalfTermFields(); });
   onValue(ref(db, 'termDates'), s => {
     if (s.val()) { termDates = s.val(); }
     renderTermFields();
@@ -193,6 +210,10 @@ window.closeModal = function(id) {
 
 // ── TRAINING VIEW ─────────────────────────────────────────────────
 function initTrainingView() {
+  const grpSel = document.getElementById('tr-group');
+  const groups = coachPhaseGroups();
+  grpSel.innerHTML = '<option value="">Select group...</option>' +
+    groups.map(g => `<option>${g}</option>`).join('');
   loadTrainingPlayers();
 }
 
@@ -252,9 +273,12 @@ window.saveTrainingReport = async function() {
     }
   });
 
+  const block = document.getElementById('tr-block')?.value || '';
+  const cycle = document.getElementById('tr-cycle')?.value || '';
   const key = `${date}_${group}_S${session}`;
   await set(ref(db, `training/${key}`), {
     date, group, session: parseInt(session),
+    block, cycle,
     coach: currentCoach.name,
     coachId: currentCoach.id,
     entries
@@ -264,6 +288,10 @@ window.saveTrainingReport = async function() {
 
 // ── MATCH VIEW ────────────────────────────────────────────────────
 function initMatchView() {
+  const grpSel = document.getElementById('mr-group');
+  const groups = coachPhaseGroups();
+  grpSel.innerHTML = '<option value="">Select group...</option>' +
+    groups.map(g => `<option>${g}</option>`).join('');
   loadMatchPlayers();
 }
 
@@ -328,25 +356,61 @@ window.saveMatchReport = async function() {
     }
   });
 
+  const dnaPress      = document.querySelector('#dna-press .dna-toggle.active-yes, #dna-press .dna-toggle.active-partly, #dna-press .dna-toggle.active-no');
+  const dnaTransition = document.querySelector('#dna-transition .dna-toggle.active-yes, #dna-transition .dna-toggle.active-partly, #dna-transition .dna-toggle.active-no');
+  const dnaControl    = document.querySelector('#dna-control .dna-toggle.active-yes, #dna-control .dna-toggle.active-partly, #dna-control .dna-toggle.active-no');
+  const dna = {
+    press:      dnaPress?.dataset.val      || '',
+    transition: dnaTransition?.dataset.val || '',
+    control:    dnaControl?.dataset.val    || ''
+  };
+
   const key = `${date}_${group}`;
   await set(ref(db, `matches/${key}`), {
     date, group, opposition, venue,
     coach: currentCoach.name,
     coachId: currentCoach.id,
-    entries
+    dna, entries
   });
   toast('Match report saved.');
 };
 
 // ── MONTHLY VIEW ──────────────────────────────────────────────────
 function initMonthlyView() {
+  populateHalfTermSelects();
+  const grpSel = document.getElementById('mo-group');
+  const groups = coachPhaseGroups();
+  grpSel.innerHTML = '<option value="">Select group...</option>' +
+    groups.map(g => `<option>${g}</option>`).join('');
+  // Show phase notice
+  const notice = document.getElementById('ht-phase-notice');
+  const phase = currentCoach?.phase || 'both';
+  if (notice) {
+    const label = phase === '1' ? 'Phase 1 (U14 and U15)' : phase === '2' ? 'Phase 2 (U16 and U18)' : 'All phases';
+    notice.textContent = `You can add reviews for: ${label}`;
+    notice.style.display = 'block';
+  }
   loadMonthlyPlayers();
+}
+
+function populateHalfTermSelects() {
+  const sel = document.getElementById('mo-month');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select half term...</option>';
+  Object.entries(halfTerms)
+    .sort((a,b) => a[1].start.localeCompare(b[1].start))
+    .forEach(([key, ht]) => {
+      sel.innerHTML += `<option value="${key}">${ht.label} (${ht.start} to ${ht.end})</option>`;
+    });
+  if (cur) sel.value = cur;
 }
 
 window.loadMonthlyPlayers = function() {
   const group = document.getElementById('mo-group').value;
   const sel   = document.getElementById('mo-player');
   sel.innerHTML = '<option value="">Select player...</option>';
+  document.getElementById('mo-form-container').innerHTML = '';
   if (!group) return;
   Object.entries(allPlayers)
     .filter(([id, p]) => p.group === group)
@@ -365,15 +429,16 @@ window.loadMonthlyForm = function() {
   const existing = allMonthly[`${month}_${pid}`] || {};
 
   const categories = [
-    { key: 'technical',  label: 'Technical' },
-    { key: 'tactical',   label: 'Tactical' },
-    { key: 'behaviours', label: 'Behaviours' },
-    { key: 'physical',   label: 'Physical' }
+    { key: 'technical',  label: 'On the Ball', sub: 'Calm, controlled, forward-first mindset' },
+    { key: 'tactical',   label: 'Game Understanding', sub: 'Recognise situations, react, exploit space' },
+    { key: 'behaviours', label: 'Compete and Commit', sub: 'Press, win first contact, work rate' },
+    { key: 'physical',   label: 'Physical Execution', sub: 'Sprint, recover, support at intensity' }
   ];
 
   container.innerHTML = categories.map(cat => `
     <div class="monthly-category">
       <div class="monthly-cat-title">${cat.label}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">${cat.sub}</div>
       <div class="rating-item" style="margin-bottom:12px;">
         <div class="rating-label">Rating</div>
         <div class="stars" id="mo_${cat.key}_stars" data-val="${existing[cat.key]?.rating || 3}">
@@ -386,6 +451,20 @@ window.loadMonthlyForm = function() {
       </div>
     </div>
   `).join('') + `
+    <div class="monthly-category" style="border-left:4px solid #2A8C3F;">
+      <div class="monthly-cat-title" style="color:#1a5c28;">BRTFC Non-Negotiables</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Scan early. Communicate early. React immediately.</div>
+      <div class="rating-item" style="margin-bottom:12px;">
+        <div class="rating-label">How consistently did this player scan, communicate and react this month?</div>
+        <div class="stars" id="mo_nonneg_stars" data-val="${existing.nonNegotiables?.rating || 3}">
+          ${buildStars('mo_nonneg_stars', existing.nonNegotiables?.rating || 3)}
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Comments</label>
+        <textarea id="mo_nonneg_comments" placeholder="Specific examples of scanning, communication and reaction...">${existing.nonNegotiables?.comments || ''}</textarea>
+      </div>
+    </div>
     <div class="monthly-category">
       <div class="monthly-cat-title">Term goals</div>
       <div id="mo-goals-list" style="margin-bottom:12px;"></div>
@@ -461,6 +540,12 @@ window.saveMonthlyReport = async function(pid) {
       comments: commentsEl?.value.trim() || ''
     };
   });
+  const nnStars    = document.getElementById('mo_nonneg_stars');
+  const nnComments = document.getElementById('mo_nonneg_comments');
+  data.nonNegotiables = {
+    rating:   parseInt(nnStars?.dataset.val || 3),
+    comments: nnComments?.value.trim() || ''
+  };
 
   const key = `${month}_${pid}`;
   await set(ref(db, `monthly/${key}`), {
@@ -519,13 +604,20 @@ window.renderIDP = function() {
   const matchBehAvg  = calcAvg(matchSessions.map(m => m.entries[pid].behaviours));
 
   const moAvgs = {};
-  ['technical','tactical','behaviours','physical'].forEach(cat => {
+  ['technical','tactical','behaviours','physical','nonNegotiables'].forEach(cat => {
     moAvgs[cat] = calcAvg(monthlyReports.map(r => r[cat]?.rating || 0).filter(v => v > 0));
     moAvgs[`${cat}_comments`] = monthlyReports
       .map(r => r[cat]?.comments)
       .filter(Boolean)
       .join(' ');
   });
+  const DNA_LABELS = {
+    technical:       'On the Ball',
+    tactical:        'Game Understanding',
+    behaviours:      'Compete and Commit',
+    physical:        'Physical Execution',
+    nonNegotiables:  'BRTFC Non-Negotiables'
+  };
 
   const overallAvg = calcAvg([
     trainPerfAvg, trainAttAvg, matchPerfAvg, matchTactAvg, matchBehAvg,
@@ -583,11 +675,18 @@ window.renderIDP = function() {
           <div class="idp-section-title">Monthly assessment</div>
           ${['technical','tactical','behaviours','physical'].map(cat => `
             <div style="margin-bottom:1.25rem;">
-              <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;text-transform:capitalize;">${cat}</div>
-              ${idpBar(cat.charAt(0).toUpperCase() + cat.slice(1), moAvgs[cat])}
-              ${moAvgs[`${cat}_comments`] ? `<div class="idp-comments-block">${moAvgs[`${cat}_comments`]}</div>` : ''}
+              <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">${DNA_LABELS[cat]}</div>
+              ${idpBar(DNA_LABELS[cat], moAvgs[cat])}
+              ${moAvgs[cat+'_comments'] ? `<div class="idp-comments-block">${moAvgs[cat+'_comments']}</div>` : ''}
             </div>
           `).join('')}
+          ${moAvgs.nonNegotiables ? `
+          <div style="margin-bottom:1.25rem;padding:12px 14px;background:var(--green-light);border-radius:var(--radius);border-left:4px solid var(--green);">
+            <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">BRTFC Non-Negotiables</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Scan early. Communicate early. React immediately.</div>
+            ${idpBar('Consistency', moAvgs.nonNegotiables)}
+            ${moAvgs.nonNegotiables_comments ? `<div class="idp-comments-block" style="margin-top:6px;">${moAvgs.nonNegotiables_comments}</div>` : ''}
+          </div>` : ''}
         </div>` : ''}
 
         <div class="idp-section">
@@ -612,7 +711,7 @@ window.renderIDP = function() {
       </div>
 
       <div class="idp-actions">
-        <button class="btn-primary" onclick="window.print()">Print IDP</button>
+        <button class="btn-primary" onclick="window.open('idp-generator.html')">Open IDP Generator</button>
         <button class="btn-secondary" onclick="emailIDPPrompt('${pid}')">Generate email</button>
       </div>
 
@@ -673,20 +772,22 @@ window.switchAdminTab = function(tab, btn) {
   if (el) { el.classList.remove('hidden'); el.classList.add('active'); }
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (tab === 'players') renderAdminPlayers();
-  if (tab === 'terms')   renderTermFields();
+  if (tab === 'players')   renderAdminPlayers();
+  if (tab === 'terms')     renderTermFields();
+  if (tab === 'halfterms') renderHalfTermFields();
 };
 
 window.addCoach = async function() {
   const name  = document.getElementById('ac-name').value.trim();
   const pin   = document.getElementById('ac-pin').value.trim();
   const role  = document.getElementById('ac-role').value.trim();
+  const phase = document.getElementById('ac-phase').value;
   const admin = document.getElementById('ac-admin').value === 'true';
   if (!name || !pin) { setStatus('coach-status', 'Name and PIN are required.', false); return; }
   if (pin.length < 4) { setStatus('coach-status', 'PIN must be at least 4 digits.', false); return; }
-  const exists = Object.values(allCoaches).find(c => c.pin === pin);
+  const exists = Object.values(allCoaches).find(c => String(c.pin) === String(pin));
   if (exists) { setStatus('coach-status', 'That PIN is already in use.', false); return; }
-  await push(ref(db, 'coaches'), { name, pin, role, admin });
+  await push(ref(db, 'coaches'), { name, pin, role, phase, admin });
   ['ac-name','ac-pin','ac-role'].forEach(id => document.getElementById(id).value = '');
   setStatus('coach-status', `Coach ${name} added.`, true);
 };
@@ -700,7 +801,7 @@ function renderCoachesList() {
     <div class="data-row">
       <div class="data-row-info">
         <div class="data-row-name">${c.name}</div>
-        <div class="data-row-sub">${c.role || 'Coach'} &bull; ${c.admin ? 'Admin' : 'Standard access'}</div>
+        <div class="data-row-sub">${c.role || 'Coach'} &bull; Phase ${c.phase === '1' ? '1 (U14/U15)' : c.phase === '2' ? '2 (U16/U18)' : 'All'} &bull; ${c.admin ? 'Admin' : 'Standard access'}</div>
       </div>
       <button class="btn-danger" onclick="removeCoach('${id}','${c.name}')">Remove</button>
     </div>
@@ -799,6 +900,54 @@ window.importFromSheets = async function() {
   }
 };
 
+function renderHalfTermFields() {
+  const el = document.getElementById('halfterm-fields');
+  if (!el) return;
+  const entries = Object.entries(halfTerms).sort((a,b) => a[1].start.localeCompare(b[1].start));
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);margin-bottom:10px;">No half-term windows defined yet. Click Add window.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(([key, ht]) => `
+    <div class="term-row" style="align-items:flex-end;">
+      <div class="form-group" style="min-width:160px;">
+        <label style="font-size:11px;">Label</label>
+        <input type="text" id="ht_${key}_label" value="${ht.label || ''}" placeholder="e.g. Half Term 1">
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;">Start</label>
+        <input type="date" id="ht_${key}_start" value="${ht.start || ''}">
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;">End</label>
+        <input type="date" id="ht_${key}_end" value="${ht.end || ''}">
+      </div>
+      <button class="btn-danger" onclick="deleteHalfTerm('${key}')" style="margin-bottom:2px;">✕</button>
+    </div>
+  `).join('');
+}
+
+window.addHalfTermRow = async function() {
+  const key = 'ht_' + Date.now();
+  await set(ref(db, `halfTerms/${key}`), { label: '', start: '', end: '' });
+};
+
+window.saveHalfTerms = async function() {
+  const entries = Object.keys(halfTerms);
+  for (const key of entries) {
+    const label = document.getElementById(`ht_${key}_label`)?.value.trim() || '';
+    const start = document.getElementById(`ht_${key}_start`)?.value || '';
+    const end   = document.getElementById(`ht_${key}_end`)?.value   || '';
+    await set(ref(db, `halfTerms/${key}`), { label, start, end });
+  }
+  setStatus('halfterms-status', 'Half-term windows saved.', true);
+};
+
+window.deleteHalfTerm = async function(key) {
+  if (!confirm('Delete this half-term window?')) return;
+  await remove(ref(db, `halfTerms/${key}`));
+};
+
 function renderTermFields() {
   const el = document.getElementById('term-fields');
   if (!el) return;
@@ -823,6 +972,17 @@ window.saveTermDates = async function() {
   });
   await set(ref(db, 'termDates'), data);
   setStatus('terms-status', 'Term dates saved.', true);
+};
+
+// ── DNA TOGGLE ───────────────────────────────────────────────────
+window.setDNA = function(groupId, val, btn) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('.dna-toggle').forEach(b => {
+    b.classList.remove('active-yes','active-partly','active-no');
+  });
+  btn.classList.add(`active-${val}`);
+  btn.dataset.val = val;
 };
 
 // ── STARS ─────────────────────────────────────────────────────────
