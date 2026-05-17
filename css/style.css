@@ -235,3 +235,17 @@ textarea { min-height: 80px; resize: vertical; }
 
 /* PHASE NOTICE */
 .phase-notice { display: none; font-size: 13px; font-weight: 500; color: var(--green-dark); background: var(--green-light); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 12px; }
+
+/* BULK IDP */
+.bulk-idp-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+.bulk-idp-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.bulk-idp-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.bulk-stat { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.bulk-stat-lbl { width: 160px; flex-shrink: 0; color: var(--text2); }
+.bulk-bar-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+.bulk-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+.bulk-stat-val { font-size: 12px; color: var(--text2); width: 36px; text-align: right; flex-shrink: 0; }
+.bulk-goals { font-size: 13px; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bulk-goal-chip { background: var(--bg2); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; font-size: 12px; color: var(--text2); }
+.bulk-goal-chip.achieved { background: var(--green-light); color: var(--green-dark); border-color: var(--green); }
+.bulk-idp-actions { display: flex; gap: 8px; flex-wrap: wrap; }

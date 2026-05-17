@@ -195,7 +195,7 @@ window.openPlayerModal = function(pid) {
       </div>
       ${trainAvg ? `<div style="font-size:13px;color:var(--text2);margin-bottom:6px;">Training avg: <strong>${trainAvg}/5</strong> &nbsp;|&nbsp; Match avg: <strong>${matchAvg || 'N/A'}/5</strong></div>` : ''}
       <div style="margin-top:1rem;">
-        <button class="btn-primary" onclick="closeModal('modal-player');switchView('idp',document.querySelector('[data-view=idp]'));setTimeout(()=>{document.getElementById('idp-player').value='${pid}';renderIDP();},100);">
+        <button class="btn-primary" onclick="closeModal('modal-player');openIDPForPlayer('${pid}');">
           View full IDP
         </button>
       </div>
@@ -206,6 +206,23 @@ window.openPlayerModal = function(pid) {
 
 window.closeModal = function(id) {
   document.getElementById(id).classList.add('hidden');
+};
+
+window.openIDPForPlayer = function(pid) {
+  const p = allPlayers[pid];
+  if (!p) return;
+  // Switch to IDP view
+  switchView('idp', document.querySelector('[data-view=idp]'));
+  // Set group then populate player select then set player
+  setTimeout(() => {
+    const grpSel = document.getElementById('idp-group');
+    grpSel.value = p.group;
+    loadIDPPlayers();
+    setTimeout(() => {
+      document.getElementById('idp-player').value = pid;
+      renderIDP();
+    }, 50);
+  }, 50);
 };
 
 // ── TRAINING VIEW ─────────────────────────────────────────────────
@@ -775,6 +792,7 @@ window.switchAdminTab = function(tab, btn) {
   if (tab === 'players')   renderAdminPlayers();
   if (tab === 'terms')     renderTermFields();
   if (tab === 'halfterms') renderHalfTermFields();
+  if (tab === 'bulkidp')    { document.getElementById('bulk-idp-list').innerHTML = ''; setStatus('bulk-status','',''); }
 };
 
 window.addCoach = async function() {
@@ -1061,3 +1079,107 @@ function setStatus(id, msg, ok) {
   el.textContent = msg;
   el.className   = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
 }
+
+// ── BULK IDP ──────────────────────────────────────────────────────
+window.generateBulkIDPs = function() {
+  const group  = document.getElementById('bulk-group').value;
+  const termNo = document.getElementById('bulk-term').value;
+  if (!group) { setStatus('bulk-status', 'Select an age group.', false); return; }
+
+  const groupPlayers = Object.entries(allPlayers)
+    .filter(([id, p]) => p.group === group)
+    .sort((a, b) => a[1].lname.localeCompare(b[1].lname));
+
+  if (!groupPlayers.length) { setStatus('bulk-status', 'No players in this group.', false); return; }
+
+  const termLabels = { '1': 'Term 1 (Aug-Oct)', '2': 'Term 2 (Nov-Jan)', '3': 'Term 3 (Feb-Apr)' };
+  const termLabel  = termLabels[termNo];
+  const termRange  = getTermRange(parseInt(termNo));
+  const year       = new Date().getFullYear();
+
+  const list = document.getElementById('bulk-idp-list');
+
+  list.innerHTML = groupPlayers.map(([pid, p]) => {
+    const trainSessions  = Object.values(allTraining).filter(t => t.entries?.[pid] && inTermRange(t.date, termRange));
+    const matchSessions  = Object.values(allMatches).filter(m => m.entries?.[pid] && inTermRange(m.date, termRange));
+    const trainPerfAvg   = calcAvg(trainSessions.map(t => t.entries[pid].performance));
+    const trainAttAvg    = calcAvg(trainSessions.map(t => t.entries[pid].attitude));
+    const matchPerfAvg   = calcAvg(matchSessions.map(m => m.entries[pid].performance));
+    const playerGoals    = Object.entries(allGoals).filter(([id, g]) => g.pid === pid);
+    const overallVals    = [trainPerfAvg, trainAttAvg, matchPerfAvg]
+      .map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+    const overall        = overallVals.length
+      ? (overallVals.reduce((a, b) => a + b, 0) / overallVals.length).toFixed(1) : null;
+    const age            = p.dob ? calcAge(p.dob) : 'N/A';
+
+    return `<div class="bulk-idp-card" id="bulk_${pid}">
+      <div class="bulk-idp-header">
+        <div class="player-avatar" style="width:38px;height:38px;font-size:13px;">${initials(p)}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:600;">${p.fname} ${p.lname}</div>
+          <div style="font-size:12px;color:var(--text2);">${p.group} &bull; ${p.pos} &bull; Age ${age}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;font-weight:800;color:var(--green-dark);">${overall || 'N/A'}<span style="font-size:13px;color:var(--text3);">/5</span></div>
+          <div style="font-size:11px;color:var(--text3);">${trainSessions.length} sessions &bull; ${matchSessions.length} matches</div>
+        </div>
+      </div>
+      <div class="bulk-idp-stats">
+        ${trainPerfAvg ? `<div class="bulk-stat"><div class="bulk-stat-lbl">Training performance</div><div class="bulk-bar-track"><div class="bulk-bar-fill" style="width:${Math.round((parseFloat(trainPerfAvg)/5)*100)}%"></div></div><div class="bulk-stat-val">${trainPerfAvg}/5</div></div>` : ''}
+        ${trainAttAvg  ? `<div class="bulk-stat"><div class="bulk-stat-lbl">Training attitude</div><div class="bulk-bar-track"><div class="bulk-bar-fill" style="width:${Math.round((parseFloat(trainAttAvg)/5)*100)}%"></div></div><div class="bulk-stat-val">${trainAttAvg}/5</div></div>` : ''}
+        ${matchPerfAvg ? `<div class="bulk-stat"><div class="bulk-stat-lbl">Match performance</div><div class="bulk-bar-track"><div class="bulk-bar-fill" style="width:${Math.round((parseFloat(matchPerfAvg)/5)*100)}%"></div></div><div class="bulk-stat-val">${matchPerfAvg}/5</div></div>` : ''}
+      </div>
+      ${playerGoals.length ? `<div class="bulk-goals"><strong>Goals:</strong> ${playerGoals.slice(0,2).map(([id,g]) => `<span class="bulk-goal-chip ${g.achieved ? 'achieved' : ''}">${g.text}</span>`).join('')}</div>` : ''}
+      <div class="bulk-idp-actions">
+        <button class="btn-secondary" style="font-size:13px;padding:7px 14px;" onclick="printSingleBulkIDP('${pid}')">Print IDP</button>
+        <button class="btn-secondary" style="font-size:13px;padding:7px 14px;" onclick="emailBulkIDP('${pid}','${termNo}','${termLabel}')">Generate email</button>
+        <button class="btn-primary"   style="font-size:13px;padding:7px 14px;" onclick="openIDPForPlayer('${pid}')">View full IDP</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  setStatus('bulk-status', `${groupPlayers.length} IDPs generated for ${group} &bull; ${termLabel}.`, true);
+};
+
+window.printBulkIDPs = function() {
+  const group = document.getElementById('bulk-group').value;
+  if (!document.getElementById('bulk-idp-list').innerHTML.trim()) {
+    setStatus('bulk-status', 'Generate IDPs first.', false);
+    return;
+  }
+  setStatus('bulk-status', 'Opening print dialog...', true);
+  setTimeout(() => window.print(), 300);
+};
+
+window.printSingleBulkIDP = function(pid) {
+  openIDPForPlayer(pid);
+  setTimeout(() => window.print(), 800);
+};
+
+window.emailBulkIDP = function(pid, termNo, termLabel) {
+  const p = allPlayers[pid];
+  if (!p) return;
+  const termRange    = getTermRange(parseInt(termNo));
+  const trainSessions = Object.values(allTraining).filter(t => t.entries?.[pid] && inTermRange(t.date, termRange));
+  const matchSessions = Object.values(allMatches).filter(m => m.entries?.[pid] && inTermRange(m.date, termRange));
+  const trainPerfAvg  = calcAvg(trainSessions.map(t => t.entries[pid].performance));
+  const trainAttAvg   = calcAvg(trainSessions.map(t => t.entries[pid].attitude));
+  const matchPerfAvg  = calcAvg(matchSessions.map(m => m.entries[pid].performance));
+  const playerGoals   = Object.values(allGoals).filter(g => g.pid === pid).slice(0, 2);
+
+  const prompt = `Write a professional Individual Development Plan email for ${p.fname} ${p.lname}, a ${p.pos} in the ${p.group} at Bognor Regis Town FC Academy.
+
+Term: ${termLabel}
+Training sessions: ${trainSessions.length}
+Matches: ${matchSessions.length}
+Training performance avg: ${trainPerfAvg || 'N/A'}/5
+Training attitude avg: ${trainAttAvg || 'N/A'}/5
+Match performance avg: ${matchPerfAvg || 'N/A'}/5
+
+Term goals:
+${playerGoals.map(g => `- ${g.text} (${g.achieved ? 'Achieved' : 'In progress'})`).join('\n') || 'No goals set.'}
+
+Address it to ${p.fname} and their parents. Include a subject line. Be specific, constructive, and encouraging. Reference the club values: aggressive without the ball, calm on the ball, accountable to each other. Sign off from the BRTFC Academy coaching team.`;
+
+  if (window.sendPrompt) window.sendPrompt(prompt);
+};

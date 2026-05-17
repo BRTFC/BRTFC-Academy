@@ -236,6 +236,7 @@
         <button class="admin-tab" onclick="switchAdminTab('import',this)">Import players</button>
         <button class="admin-tab" onclick="switchAdminTab('terms',this)">Terms</button>
         <button class="admin-tab" onclick="switchAdminTab('halfterms',this)">Half terms</button>
+        <button class="admin-tab" onclick="switchAdminTab('bulkidp',this)">Bulk IDP</button>
       </div>
 
       <!-- COACHES TAB -->
@@ -328,6 +329,37 @@
           </div>
           <div id="halfterms-status" class="status-msg"></div>
         </div>
+      </div>
+
+      <!-- BULK IDP TAB -->
+      <div id="admin-bulkidp" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Send and print all IDPs</div>
+          <p class="help-text">Select an age group and term to generate IDPs for all players in that group. You can then print all or send emails individually.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Age group</label>
+              <select id="bulk-group">
+                <option value="">Select group...</option>
+                <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Term</label>
+              <select id="bulk-term">
+                <option value="1">Term 1 (Aug-Oct)</option>
+                <option value="2">Term 2 (Nov-Jan)</option>
+                <option value="3">Term 3 (Feb-Apr)</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="generateBulkIDPs()">Generate all IDPs</button>
+            <button class="btn-secondary" onclick="printBulkIDPs()">Print all</button>
+          </div>
+          <div id="bulk-status" class="status-msg"></div>
+        </div>
+        <div id="bulk-idp-list"></div>
       </div>
 
     </div><!-- /admin -->
