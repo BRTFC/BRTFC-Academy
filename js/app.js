@@ -622,7 +622,7 @@ window.renderIDP = function() {
   const overallAvg = calcAvg([
     trainPerfAvg, trainAttAvg, matchPerfAvg, matchTactAvg, matchBehAvg,
     moAvgs.technical, moAvgs.tactical, moAvgs.behaviours, moAvgs.physical
-  ].filter(v => v > 0));
+  ].map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0));
 
   const age  = p.dob ? calcAge(p.dob) : 'N/A';
   const year = new Date().getFullYear();
@@ -1016,7 +1016,7 @@ function calcAge(dob) {
 }
 
 function calcAvg(vals) {
-  const clean = vals.filter(v => v > 0);
+  const clean = (vals||[]).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   if (!clean.length) return null;
   return (clean.reduce((a, b) => a + b, 0) / clean.length).toFixed(1);
 }

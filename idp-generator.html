@@ -269,7 +269,7 @@ window.generateIDP = function() {
 
   const allRatings = [trainPerfAvg, trainAttAvg, matchPerfAvg, matchTactAvg, matchBehAvg,
     moData.technical.rating, moData.tactical.rating, moData.behaviours.rating, moData.physical.rating
-  ].filter(v => v > 0);
+  ].map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   const overall = allRatings.length ? (allRatings.reduce((a,b)=>a+b,0)/allRatings.length).toFixed(1) : null;
 
   const age = p.dob ? calcAge(p.dob) : 'N/A';
@@ -453,11 +453,10 @@ window.generateIDP = function() {
 };
 
 window.downloadPDF = function() {
-  const { jsPDF } = window.jspdf;
-  if (!jsPDF) { alert('PDF library not loaded.'); return; }
-  document.getElementById('gen-status').textContent = 'Preparing PDF...';
-  window.print();
-  document.getElementById('gen-status').textContent = 'Use your browser print dialog to save as PDF.';
+  const doc = document.getElementById('idp-doc');
+  if (!doc) { alert('Generate an IDP first.'); return; }
+  document.getElementById('gen-status').textContent = 'Opening print dialog. Select Save as PDF as the destination.';
+  setTimeout(() => window.print(), 300);
 };
 
 function getTermRange(n) {
@@ -474,7 +473,7 @@ function inRange(dateStr, range) {
 }
 
 function avg(vals) {
-  const clean = (vals||[]).filter(v => v > 0);
+  const clean = (vals||[]).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   if (!clean.length) return null;
   return (clean.reduce((a,b)=>a+b,0)/clean.length).toFixed(1);
 }
