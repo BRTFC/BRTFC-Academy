@@ -40,6 +40,7 @@
     <button class="nav-btn" data-view="monthly" onclick="switchView('monthly',this)">Reviews</button>
     <button class="nav-btn" data-view="idp" onclick="switchView('idp',this)">IDP</button>
     <button class="nav-btn nav-admin hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
+    <button class="nav-btn nav-admin hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
   </nav>
 
   <main class="app-main">
@@ -258,6 +259,65 @@
         </select>
       </div>
       <div id="idp-output"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view hidden">
+      <div class="dash-header">
+        <div class="dash-title">Academy Performance Dashboard</div>
+        <div class="dash-sub">Live data from all coaches across all age groups</div>
+      </div>
+      <div class="dash-controls">
+        <select id="dash-term" onchange="renderDashboard()">
+          <option value="1">Term 1 (Aug-Oct)</option>
+          <option value="2">Term 2 (Nov-Jan)</option>
+          <option value="3">Term 3 (Feb-Apr)</option>
+        </select>
+        <button class="btn-primary" onclick="renderDashboard()">Refresh</button>
+      </div>
+
+      <!-- SUMMARY METRICS -->
+      <div class="dash-metric-grid" id="dash-metrics"></div>
+
+      <!-- DNA COMPLIANCE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Team DNA Compliance</div>
+        <div class="dash-section-sub">How consistently is the team executing the game model across all age groups?</div>
+        <div id="dash-dna"></div>
+      </div>
+
+      <!-- RATINGS BY GROUP -->
+      <div class="dash-section">
+        <div class="dash-section-title">Average ratings by age group</div>
+        <div class="dash-section-sub">Training and match averages across the academy this term</div>
+        <div id="dash-ratings"></div>
+      </div>
+
+      <!-- BLOCK COVERAGE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Curriculum block coverage</div>
+        <div class="dash-section-sub">Which blocks have been delivered and how many sessions per block</div>
+        <div id="dash-blocks"></div>
+      </div>
+
+      <!-- PLAYER FLAGS -->
+      <div class="dash-section">
+        <div class="dash-section-title">Players to review</div>
+        <div class="dash-section-sub">Players averaging below 2.5 across two or more categories this term</div>
+        <div id="dash-flags"></div>
+      </div>
+
+      <!-- FULL TABLE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Full player table</div>
+        <div class="dash-filter-row">
+          <select id="dash-filter-group" onchange="renderDashboard()">
+            <option value="all">All groups</option>
+            <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+          </select>
+        </div>
+        <div id="dash-table"></div>
+      </div>
     </div>
 
     <!-- ADMIN -->

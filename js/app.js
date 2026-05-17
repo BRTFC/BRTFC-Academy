@@ -114,10 +114,11 @@ window.switchView = function(v, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  if (v === 'training') initTrainingView();
-  if (v === 'match')    initMatchView();
-  if (v === 'monthly')  initMonthlyView();
-  if (v === 'admin')    renderAdminPlayers();
+  if (v === 'training')  initTrainingView();
+  if (v === 'match')     initMatchView();
+  if (v === 'monthly')   initMonthlyView();
+  if (v === 'admin')     renderAdminPlayers();
+  if (v === 'dashboard') renderDashboard();
 };
 
 // ── PLAYERS VIEW ──────────────────────────────────────────────────
@@ -231,6 +232,16 @@ function initTrainingView() {
   const groups = coachPhaseGroups();
   grpSel.innerHTML = '<option value="">Select group...</option>' +
     groups.map(g => `<option>${g}</option>`).join('');
+
+  // Auto-detect block and cycle from today's date
+  const detected = autoDetectBlockAndCycle();
+  if (detected) {
+    const blockSel = document.getElementById('tr-block');
+    const cycleSel = document.getElementById('tr-cycle');
+    if (blockSel) { blockSel.value = detected.block; showBlockInfo(); }
+    if (cycleSel) cycleSel.value = detected.cycle;
+    toast(`Auto-detected: Block ${detected.block}, Week ${detected.cycleWeek} of 3`);
+  }
   loadTrainingPlayers();
 }
 
@@ -242,6 +253,32 @@ const BLOCK_INFO = {
   '5': { title: 'Block 5: Defend and Transition', focus: 'Compact shape, win first contact, dominate second balls.', behaviours: 'Reaction, engagement, support.' },
   '6': { title: 'Block 6: Game Control and Compete', focus: 'Reset when needed, control tempo, manage risk.', behaviours: 'Communication, engagement, accountability.' }
 };
+
+function autoDetectBlockAndCycle() {
+  // Calculate which block and week we are in based on term start dates and today
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // Find which term we are in
+  let termStart = null;
+  for (let n = 1; n <= 3; n++) {
+    const t = termDates[n];
+    if (!t?.start) continue;
+    const s = new Date(t.start);
+    const e = new Date(t.end);
+    if (today >= s && today <= e) { termStart = s; break; }
+  }
+  if (!termStart) return null;
+
+  // How many days into the term are we?
+  const daysIn  = Math.floor((today - termStart) / (1000 * 60 * 60 * 24));
+  const weekNum  = Math.floor(daysIn / 7); // 0-indexed week number from term start
+  const blockNum = (Math.floor(weekNum / 3) % 6) + 1; // 6 blocks of 3 weeks each
+  const cycleWeek = (weekNum % 3) + 1; // 1, 2, or 3
+  const cycleMap  = { 1: 'recognition', 2: 'execution', 3: 'application' };
+
+  return { block: String(blockNum), cycle: cycleMap[cycleWeek], cycleWeek };
+}
 
 window.showBlockInfo = function() {
   const val = document.getElementById('tr-block')?.value;
@@ -1235,4 +1272,217 @@ ${playerGoals.map(g => `- ${g.text} (${g.achieved ? 'Achieved' : 'In progress'})
 Address it to ${p.fname} and their parents. Include a subject line. Be specific, constructive, and encouraging. Reference the club values: aggressive without the ball, calm on the ball, accountable to each other. Sign off from the BRTFC Academy coaching team.`;
 
   if (window.sendPrompt) window.sendPrompt(prompt);
+};
+
+// ── DASHBOARD ─────────────────────────────────────────────────────
+window.renderDashboard = function() {
+  const termNo   = parseInt(document.getElementById('dash-term')?.value || 1);
+  const grpFilter = document.getElementById('dash-filter-group')?.value || 'all';
+  const termRange = getTermRange(termNo);
+  const GROUPS    = ['U14','U15','U16','U18'];
+
+  // Filter data to this term
+  const termTraining = Object.values(allTraining).filter(t => inTermRange(t.date, termRange));
+  const termMatches  = Object.values(allMatches).filter(m => inTermRange(m.date, termRange));
+
+  // ── SUMMARY METRICS ───────────────────────────────────────────
+  const totalPlayers  = Object.keys(allPlayers).length;
+  const totalSessions = termTraining.length;
+  const totalMatches  = termMatches.length;
+  const totalEntries  = termTraining.reduce((sum, t) => sum + Object.keys(t.entries || {}).length, 0)
+                      + termMatches.reduce((sum,  m) => sum + Object.keys(m.entries  || {}).length, 0);
+
+  document.getElementById('dash-metrics').innerHTML = `
+    <div class="dash-metric"><div class="dash-metric-val">${totalPlayers}</div><div class="dash-metric-lbl">Players</div></div>
+    <div class="dash-metric"><div class="dash-metric-val">${totalSessions}</div><div class="dash-metric-lbl">Training sessions</div></div>
+    <div class="dash-metric"><div class="dash-metric-val">${totalMatches}</div><div class="dash-metric-lbl">Matches</div></div>
+    <div class="dash-metric"><div class="dash-metric-val">${totalEntries}</div><div class="dash-metric-lbl">Data entries</div></div>
+    <div class="dash-metric"><div class="dash-metric-val">${Object.keys(allCoaches).length}</div><div class="dash-metric-lbl">Coaches</div></div>
+  `;
+
+  // ── DNA COMPLIANCE ────────────────────────────────────────────
+  const dnaKeys = [
+    { key: 'forward',    label: 'Forward first' },
+    { key: 'ballspeed',  label: 'High ball speed' },
+    { key: 'finalthird', label: 'Final third' },
+    { key: 'press',      label: 'Pressing' },
+    { key: 'recovery',   label: 'Recovery' }
+  ];
+
+  const dnaEl = document.getElementById('dash-dna');
+  if (termMatches.length === 0) {
+    dnaEl.innerHTML = '<div style="font-size:13px;color:var(--text3);">No match data for this term yet.</div>';
+  } else {
+    dnaEl.innerHTML = dnaKeys.map(dk => {
+      const vals = termMatches.map(m => m.dna?.[dk.key]).filter(Boolean);
+      const yes    = vals.filter(v => v === 'yes').length;
+      const partly = vals.filter(v => v === 'partly').length;
+      const no     = vals.filter(v => v === 'no').length;
+      const total  = vals.length || 1;
+      const pctY   = Math.round((yes    / total) * 100);
+      const pctP   = Math.round((partly / total) * 100);
+      const pctN   = Math.round((no     / total) * 100);
+      return `<div class="dna-bar-row">
+        <div class="dna-bar-label">${dk.label}</div>
+        <div class="dna-bar-wrap">
+          <div class="dna-seg-track">
+            ${yes    ? `<div class="dna-seg dna-seg-yes"    style="flex:${yes}">${pctY}%</div>`    : ''}
+            ${partly ? `<div class="dna-seg dna-seg-partly" style="flex:${partly}">${pctP}%</div>` : ''}
+            ${no     ? `<div class="dna-seg dna-seg-no"     style="flex:${no}">${pctN}%</div>`     : ''}
+            ${!vals.length ? `<div class="dna-seg dna-seg-empty" style="flex:1">No data</div>`    : ''}
+          </div>
+          <div class="dna-bar-counts">
+            <span class="dna-count-yes">✓ Yes: ${yes}</span>
+            <span class="dna-count-partly">~ Partly: ${partly}</span>
+            <span class="dna-count-no">✗ No: ${no}</span>
+            <span style="color:var(--text3);">(${vals.length} matches rated)</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── RATINGS BY GROUP ──────────────────────────────────────────
+  const ratingsEl = document.getElementById('dash-ratings');
+  const ratingCategories = [
+    { key: 'training', label: 'Training', metrics: [
+      { label: 'Attitude',       fn: e => e.attitude },
+      { label: 'Communication',  fn: e => e.communication },
+      { label: 'Performance',    fn: e => e.performance }
+    ]},
+    { key: 'match', label: 'Match', metrics: [
+      { label: 'Mindset',  fn: e => e.mindset },
+      { label: 'Physical', fn: e => e.physical },
+      { label: 'Impact',   fn: e => e.impact }
+    ]}
+  ];
+
+  ratingsEl.innerHTML = ratingCategories.map(cat => {
+    const sessions = cat.key === 'training' ? termTraining : termMatches;
+    return `<div class="group-rating-row">
+      <div class="group-rating-label"><span>${cat.label} ratings by age group</span></div>
+      <div class="group-bar-set">
+        ${GROUPS.map(grp => {
+          const grpSessions = sessions.filter(s => s.group === grp);
+          const grpPlayers  = Object.entries(allPlayers).filter(([id,p]) => p.group === grp);
+          if (!grpSessions.length) return '';
+          const vals = grpSessions.flatMap(s =>
+            grpPlayers.flatMap(([pid]) =>
+              cat.metrics.map(m => parseFloat(s.entries?.[pid] ? m.fn(s.entries[pid]) : 0)).filter(v => !isNaN(v) && v > 0)
+            )
+          );
+          const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+          const pct = Math.round((avg/5)*100);
+          const colour = avg > 3.5 ? 'linear-gradient(90deg,#8a6a00,#B8922A)' : avg >= 2.5 ? 'linear-gradient(90deg,#1a5c28,#2A8C3F)' : 'linear-gradient(90deg,#e07000,#f09030)';
+          return `<div class="group-bar-item">
+            <div class="group-bar-name">${grp}</div>
+            <div class="group-bar-track"><div class="group-bar-fill" style="width:${pct}%;background:${colour};"></div></div>
+            <div class="group-bar-val">${avg ? avg.toFixed(1) : 'N/A'}/5</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── BLOCK COVERAGE ────────────────────────────────────────────
+  const blockCounts = { '1':0,'2':0,'3':0,'4':0,'5':0,'6':0 };
+  const blockLabels = { '1':'Build and Progress','2':'Create and Exploit','3':'Final Third','4':'Press and Regain','5':'Defend and Transition','6':'Game Control' };
+  termTraining.forEach(t => { if (t.block && blockCounts[t.block] !== undefined) blockCounts[t.block]++; });
+  document.getElementById('dash-blocks').innerHTML = `
+    <div class="block-coverage-grid">
+      ${Object.entries(blockCounts).map(([b,count]) => `
+        <div class="block-coverage-item">
+          <div class="block-coverage-num">${count}</div>
+          <div class="block-coverage-lbl">Block ${b}<br>${blockLabels[b]}</div>
+          <div class="block-coverage-sessions">${count} session${count!==1?'s':''}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // ── PLAYER FLAGS ──────────────────────────────────────────────
+  const flagEl = document.getElementById('dash-flags');
+  const flags  = [];
+  Object.entries(allPlayers).forEach(([pid, p]) => {
+    const pTraining = termTraining.filter(t => t.entries?.[pid]);
+    const pMatches  = termMatches.filter(m => m.entries?.[pid]);
+    if (!pTraining.length && !pMatches.length) return;
+
+    const tAvg = val => calcAvg(pTraining.map(t => t.entries[pid][val]).filter(v => v));
+    const mAvg = val => calcAvg(pMatches.map(m  => m.entries[pid][val]).filter(v => v));
+
+    const allAvgs = [tAvg('attitude'), tAvg('communication'), tAvg('performance'),
+                     mAvg('mindset'),  mAvg('physical'),       mAvg('impact')]
+      .map(v => parseFloat(v)).filter(v => !isNaN(v));
+
+    const lowCount = allAvgs.filter(v => v < 2.5).length;
+    if (lowCount >= 2) {
+      const overall = allAvgs.length ? (allAvgs.reduce((a,b)=>a+b,0)/allAvgs.length).toFixed(1) : 'N/A';
+      flags.push({ pid, p, overall, lowCount });
+    }
+  });
+
+  if (!flags.length) {
+    flagEl.innerHTML = '<div style="font-size:13px;color:var(--text3);">No players flagged this term. All averaging 2.5 or above across categories.</div>';
+  } else {
+    flagEl.innerHTML = flags.sort((a,b) => parseFloat(a.overall)-parseFloat(b.overall)).map(f => `
+      <div class="flag-card">
+        <div class="player-avatar" style="width:34px;height:34px;font-size:12px;background:var(--red-light);color:var(--red);">${initials(f.p)}</div>
+        <div>
+          <div class="flag-name">${f.p.fname} ${f.p.lname}</div>
+          <div class="flag-detail">${f.p.group} &bull; ${f.p.pos} &bull; Overall avg: ${f.overall}/5</div>
+        </div>
+        <div class="flag-badge">${f.lowCount} areas below 2.5</div>
+        <button class="btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="openIDPForPlayer('${f.pid}')">View IDP</button>
+      </div>
+    `).join('');
+  }
+
+  // ── FULL PLAYER TABLE ─────────────────────────────────────────
+  const tableEl = document.getElementById('dash-table');
+  const filtered = Object.entries(allPlayers)
+    .filter(([id,p]) => grpFilter === 'all' || p.group === grpFilter)
+    .sort((a,b) => a[1].group.localeCompare(b[1].group) || a[1].lname.localeCompare(b[1].lname));
+
+  const pillClass = v => {
+    if (!v || v === 'N/A') return 'pill-grey';
+    const n = parseFloat(v);
+    if (n > 3.5)  return 'pill-gold';
+    if (n >= 2.5) return 'pill-green';
+    return 'pill-orange';
+  };
+
+  tableEl.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="player-table">
+      <thead><tr>
+        <th>Player</th><th>Group</th><th>Pos</th>
+        <th>Attitude</th><th>Comm.</th><th>Perf.</th>
+        <th>Mindset</th><th>Physical</th><th>Impact</th>
+        <th>Sessions</th><th>Matches</th>
+      </tr></thead>
+      <tbody>
+        ${filtered.map(([pid,p]) => {
+          const pt = termTraining.filter(t => t.entries?.[pid]);
+          const pm = termMatches.filter(m => m.entries?.[pid]);
+          const ta = calcAvg(pt.map(t => t.entries[pid].attitude));
+          const tc = calcAvg(pt.map(t => t.entries[pid].communication));
+          const tp = calcAvg(pt.map(t => t.entries[pid].performance));
+          const mm = calcAvg(pm.map(m => m.entries[pid].mindset));
+          const mf = calcAvg(pm.map(m => m.entries[pid].physical));
+          const mi = calcAvg(pm.map(m => m.entries[pid].impact));
+          const pill = (v) => v ? `<span class="rating-pill ${pillClass(v)}">${v}</span>` : '<span style="color:var(--text3);">-</span>';
+          return `<tr>
+            <td style="font-weight:600;">${p.fname} ${p.lname}</td>
+            <td><span class="badge badge-group">${p.group}</span></td>
+            <td>${p.pos}</td>
+            <td>${pill(ta)}</td><td>${pill(tc)}</td><td>${pill(tp)}</td>
+            <td>${pill(mm)}</td><td>${pill(mf)}</td><td>${pill(mi)}</td>
+            <td>${pt.length}</td><td>${pm.length}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
 };
