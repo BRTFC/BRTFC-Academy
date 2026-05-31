@@ -29,7 +29,10 @@
     </div>
     <div class="header-right">
       <span class="header-coach" id="header-coach-name"></span>
-      <button class="btn-signout" onclick="doLogout()">Sign out</button>
+      <div class="header-actions">
+        <button class="btn-theme" onclick="toggleTheme()" id="theme-btn" title="Toggle dark mode">🌙</button>
+        <button class="btn-signout" onclick="doLogout()">Sign out</button>
+      </div>
     </div>
   </header>
 
@@ -495,6 +498,7 @@
 <!-- PLAYER PROFILE MODAL -->
 <div id="modal-player" class="modal hidden">
   <div class="modal-box">
+    <div class="modal-handle"></div>
     <div class="modal-header">
       <div id="modal-player-name" class="modal-title"></div>
       <button class="modal-close" onclick="closeModal('modal-player')">✕</button>
