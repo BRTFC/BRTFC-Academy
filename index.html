@@ -173,62 +173,42 @@
       </div>
       <div class="form-card" style="border-left:4px solid #2A8C3F;">
         <div class="form-section-title">Team DNA compliance</div>
-        <p style="font-size:13px;color:#5a5956;margin-bottom:1rem;">Rate the team as a whole. One tap per question.</p>
-        <div class="dna-check-group">
-          <div class="dna-check-item">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Rate the team out of 5 on each DNA principle.</p>
+        <div class="dna-star-group">
+          <div class="dna-star-item">
             <div class="dna-check-col">
               <div class="dna-check-label">Forward first</div>
               <div class="dna-check-hint">Did the team look to play forward first before recycling?</div>
             </div>
-            <div class="dna-toggle-group" id="dna-forward">
-              <button class="dna-toggle" onclick="setDNA('dna-forward','yes',this)">Yes</button>
-              <button class="dna-toggle" onclick="setDNA('dna-forward','partly',this)">Partly</button>
-              <button class="dna-toggle" onclick="setDNA('dna-forward','no',this)">No</button>
-            </div>
+            <div class="stars" id="dna_forward" data-val="3"><span class="star on" onclick="setStar('dna_forward',1)">★</span><span class="star on" onclick="setStar('dna_forward',2)">★</span><span class="star on" onclick="setStar('dna_forward',3)">★</span><span class="star" onclick="setStar('dna_forward',4)">★</span><span class="star" onclick="setStar('dna_forward',5)">★</span><span class="star-count">3/5</span></div>
           </div>
-          <div class="dna-check-item">
+          <div class="dna-star-item">
             <div class="dna-check-col">
               <div class="dna-check-label">High ball speed</div>
               <div class="dna-check-hint">Was the ball moved quickly to exploit spaces and overloads?</div>
             </div>
-            <div class="dna-toggle-group" id="dna-ballspeed">
-              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','yes',this)">Yes</button>
-              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','partly',this)">Partly</button>
-              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','no',this)">No</button>
-            </div>
+            <div class="stars" id="dna_ballspeed" data-val="3"><span class="star on" onclick="setStar('dna_ballspeed',1)">★</span><span class="star on" onclick="setStar('dna_ballspeed',2)">★</span><span class="star on" onclick="setStar('dna_ballspeed',3)">★</span><span class="star" onclick="setStar('dna_ballspeed',4)">★</span><span class="star" onclick="setStar('dna_ballspeed',5)">★</span><span class="star-count">3/5</span></div>
           </div>
-          <div class="dna-check-item">
+          <div class="dna-star-item">
             <div class="dna-check-col">
               <div class="dna-check-label">Final third entries</div>
               <div class="dna-check-hint">Did entries into the final third end in a shot or cross?</div>
             </div>
-            <div class="dna-toggle-group" id="dna-finalthird">
-              <button class="dna-toggle" onclick="setDNA('dna-finalthird','yes',this)">Yes</button>
-              <button class="dna-toggle" onclick="setDNA('dna-finalthird','partly',this)">Partly</button>
-              <button class="dna-toggle" onclick="setDNA('dna-finalthird','no',this)">No</button>
-            </div>
+            <div class="stars" id="dna_finalthird" data-val="3"><span class="star on" onclick="setStar('dna_finalthird',1)">★</span><span class="star on" onclick="setStar('dna_finalthird',2)">★</span><span class="star on" onclick="setStar('dna_finalthird',3)">★</span><span class="star" onclick="setStar('dna_finalthird',4)">★</span><span class="star" onclick="setStar('dna_finalthird',5)">★</span><span class="star-count">3/5</span></div>
           </div>
-          <div class="dna-check-item">
+          <div class="dna-star-item">
             <div class="dna-check-col">
               <div class="dna-check-label">Pressing</div>
               <div class="dna-check-hint">Did the team work together to win the ball high up the pitch?</div>
             </div>
-            <div class="dna-toggle-group" id="dna-press">
-              <button class="dna-toggle" onclick="setDNA('dna-press','yes',this)">Yes</button>
-              <button class="dna-toggle" onclick="setDNA('dna-press','partly',this)">Partly</button>
-              <button class="dna-toggle" onclick="setDNA('dna-press','no',this)">No</button>
-            </div>
+            <div class="stars" id="dna_press" data-val="3"><span class="star on" onclick="setStar('dna_press',1)">★</span><span class="star on" onclick="setStar('dna_press',2)">★</span><span class="star on" onclick="setStar('dna_press',3)">★</span><span class="star" onclick="setStar('dna_press',4)">★</span><span class="star" onclick="setStar('dna_press',5)">★</span><span class="star-count">3/5</span></div>
           </div>
-          <div class="dna-check-item">
+          <div class="dna-star-item">
             <div class="dna-check-col">
               <div class="dna-check-label">Recovery</div>
               <div class="dna-check-hint">Did the team recover quickly and organise after losing possession?</div>
             </div>
-            <div class="dna-toggle-group" id="dna-recovery">
-              <button class="dna-toggle" onclick="setDNA('dna-recovery','yes',this)">Yes</button>
-              <button class="dna-toggle" onclick="setDNA('dna-recovery','partly',this)">Partly</button>
-              <button class="dna-toggle" onclick="setDNA('dna-recovery','no',this)">No</button>
-            </div>
+            <div class="stars" id="dna_recovery" data-val="3"><span class="star on" onclick="setStar('dna_recovery',1)">★</span><span class="star on" onclick="setStar('dna_recovery',2)">★</span><span class="star on" onclick="setStar('dna_recovery',3)">★</span><span class="star" onclick="setStar('dna_recovery',4)">★</span><span class="star" onclick="setStar('dna_recovery',5)">★</span><span class="star-count">3/5</span></div>
           </div>
         </div>
       </div>
