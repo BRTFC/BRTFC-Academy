@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRTFC Academy</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen">
+  <div class="login-box">
+    <img src="images/Bognorregistownfc.png" alt="BRTFC Crest" class="login-crest-img">
+    <div class="login-club">Bognor Regis Town FC</div>
+    <div class="login-sub">Academy Coaching Portal</div>
+    <input type="password" id="login-pin" maxlength="8" placeholder="Enter your PIN" autocomplete="off">
+    <button class="btn-login" onclick="doLogin()">Sign in</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="screen-app" class="screen hidden">
+  <header class="app-header">
+    <div class="header-left">
+      <span class="header-crest">⚽</span>
+      <span class="header-title">BRTFC Academy</span>
+    </div>
+    <div class="header-right">
+      <span class="header-coach" id="header-coach-name"></span>
+      <button class="btn-signout" onclick="doLogout()">Sign out</button>
+    </div>
+  </header>
+
+  <nav class="app-nav" id="app-nav">
+    <button class="nav-btn active" data-view="players" onclick="switchView('players',this)">Players</button>
+    <button class="nav-btn" data-view="training" onclick="switchView('training',this)">Training</button>
+    <button class="nav-btn" data-view="match" onclick="switchView('match',this)">Match</button>
+    <button class="nav-btn" data-view="monthly" onclick="switchView('monthly',this)">Reviews</button>
+    <button class="nav-btn" data-view="idp" onclick="switchView('idp',this)">IDP</button>
+    <button class="nav-btn nav-admin hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
+    <button class="nav-btn nav-admin hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
+  </nav>
+
+  <main class="app-main">
+
+    <!-- PLAYERS -->
+    <div id="view-players" class="view active">
+      <div class="view-header">
+        <div class="group-filter" id="players-group-filter">
+          <button class="filter-btn active" onclick="filterPlayers('all',this)">All</button>
+          <button class="filter-btn" onclick="filterPlayers('U14',this)">U14</button>
+          <button class="filter-btn" onclick="filterPlayers('U15',this)">U15</button>
+          <button class="filter-btn" onclick="filterPlayers('U16',this)">U16</button>
+          <button class="filter-btn" onclick="filterPlayers('U18',this)">U18</button>
+        </div>
+      </div>
+      <div id="players-list" class="player-grid"></div>
+    </div>
+
+    <!-- TRAINING REPORT -->
+    <div id="view-training" class="view hidden">
+      <div class="form-card">
+        <div class="form-section-title">Session details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="tr-date" onchange="onTrainingDateChange()">
+          </div>
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="tr-group" onchange="loadTrainingPlayers()">
+              <option value="">Select group...</option>
+              <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+            </select>
+          </div>
+
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Curriculum block</label>
+            <select id="tr-block">
+              <option value="">Select block...</option>
+              <option value="1">Block 1: Build and Progress</option>
+              <option value="2">Block 2: Create and Exploit Space</option>
+              <option value="3">Block 3: Final Third Effectiveness</option>
+              <option value="4">Block 4: Press and Regain</option>
+              <option value="5">Block 5: Defend and Transition</option>
+              <option value="6">Block 6: Game Control and Compete</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Micro-cycle phase</label>
+            <select id="tr-cycle">
+              <option value="recognition">Week 1 of 3: Recognition (identify patterns, messy is fine)</option>
+              <option value="execution">Week 2 of 3: Execution (technical quality and speed)</option>
+              <option value="application">Week 3 of 3: Application (execute in game scenarios)</option>
+            </select>
+          </div>
+        </div>
+        <div id="tr-block-info" class="block-info-panel" style="display:none;"></div>
+      </div>
+      <div id="tr-players-container">
+        <div class="empty-state">Select an age group to load players.</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveTrainingReport()">Save session report</button>
+      </div>
+    </div>
+
+    <!-- MATCH REPORT -->
+    <div id="view-match" class="view hidden">
+      <div class="form-card">
+        <div class="form-section-title">Match details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="mr-date" onchange="onMatchDateChange()">
+          </div>
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="mr-group" onchange="loadMatchPlayers()">
+              <option value="">Select group...</option>
+              <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Opposition</label>
+            <input type="text" id="mr-opposition" placeholder="e.g. Chichester City">
+          </div>
+          <div class="form-group">
+            <label>Venue</label>
+            <select id="mr-venue">
+              <option value="Home">Home</option>
+              <option value="Away">Away</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Curriculum block</label>
+            <select id="mr-block" onchange="showBlockInfo('mr-block','mr-block-info')">
+              <option value="">Select block...</option>
+              <option value="1">Block 1: Build and Progress</option>
+              <option value="2">Block 2: Create and Exploit Space</option>
+              <option value="3">Block 3: Final Third Effectiveness</option>
+              <option value="4">Block 4: Press and Regain</option>
+              <option value="5">Block 5: Defend and Transition</option>
+              <option value="6">Block 6: Game Control and Compete</option>
+            </select>
+          </div>
+        </div>
+        <div id="mr-block-info" class="block-info-panel" style="display:none;margin-bottom:10px;"></div>
+        <div class="form-group" style="margin-top:4px;">
+          <label>Block review</label>
+          <textarea id="mr-block-review" placeholder="How well did the team apply the block focus in this match? What did you see?"></textarea>
+        </div>
+      </div>
+      <div id="mr-players-container">
+        <div class="empty-state">Select an age group to load players.</div>
+      </div>
+      <div class="form-card" style="border-left:4px solid #2A8C3F;">
+        <div class="form-section-title">Team DNA compliance</div>
+        <p style="font-size:13px;color:#5a5956;margin-bottom:1rem;">Rate the team as a whole. One tap per question.</p>
+        <div class="dna-check-group">
+          <div class="dna-check-item">
+            <div class="dna-check-col">
+              <div class="dna-check-label">Forward first</div>
+              <div class="dna-check-hint">Did the team look to play forward first before recycling?</div>
+            </div>
+            <div class="dna-toggle-group" id="dna-forward">
+              <button class="dna-toggle" onclick="setDNA('dna-forward','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-forward','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-forward','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-col">
+              <div class="dna-check-label">High ball speed</div>
+              <div class="dna-check-hint">Was the ball moved quickly to exploit spaces and overloads?</div>
+            </div>
+            <div class="dna-toggle-group" id="dna-ballspeed">
+              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-ballspeed','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-col">
+              <div class="dna-check-label">Final third entries</div>
+              <div class="dna-check-hint">Did entries into the final third end in a shot or cross?</div>
+            </div>
+            <div class="dna-toggle-group" id="dna-finalthird">
+              <button class="dna-toggle" onclick="setDNA('dna-finalthird','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-finalthird','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-finalthird','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-col">
+              <div class="dna-check-label">Pressing</div>
+              <div class="dna-check-hint">Did the team work together to win the ball high up the pitch?</div>
+            </div>
+            <div class="dna-toggle-group" id="dna-press">
+              <button class="dna-toggle" onclick="setDNA('dna-press','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-press','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-press','no',this)">No</button>
+            </div>
+          </div>
+          <div class="dna-check-item">
+            <div class="dna-check-col">
+              <div class="dna-check-label">Recovery</div>
+              <div class="dna-check-hint">Did the team recover quickly and organise after losing possession?</div>
+            </div>
+            <div class="dna-toggle-group" id="dna-recovery">
+              <button class="dna-toggle" onclick="setDNA('dna-recovery','yes',this)">Yes</button>
+              <button class="dna-toggle" onclick="setDNA('dna-recovery','partly',this)">Partly</button>
+              <button class="dna-toggle" onclick="setDNA('dna-recovery','no',this)">No</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveMatchReport()">Save match report</button>
+      </div>
+    </div>
+
+    <!-- HALF-TERM REVIEW -->
+    <div id="view-monthly" class="view hidden">
+      <div class="form-card">
+        <div class="form-section-title">Half-term review</div>
+        <div class="phase-notice" id="ht-phase-notice"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Half term</label>
+            <select id="mo-month" onchange="loadMonthlyPlayers()">
+              <option value="">Select half term...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="mo-group" onchange="loadMonthlyPlayers()">
+              <option value="">Select group...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Player</label>
+            <select id="mo-player" onchange="loadMonthlyForm()">
+              <option value="">Select player...</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="mo-form-container"></div>
+    </div>
+
+    <!-- IDP -->
+    <div id="view-idp" class="view hidden">
+      <div class="idp-controls">
+        <select id="idp-group" onchange="loadIDPPlayers()">
+          <option value="">Select group...</option>
+          <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+        </select>
+        <select id="idp-player" onchange="renderIDP()">
+          <option value="">Select player...</option>
+        </select>
+        <select id="idp-term" onchange="renderIDP()">
+          <option value="1">Term 1 (Aug-Oct)</option>
+          <option value="2">Term 2 (Nov-Jan)</option>
+          <option value="3">Term 3 (Feb-Apr)</option>
+        </select>
+      </div>
+      <div id="idp-output"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view hidden">
+      <div class="dash-header">
+        <div class="dash-title">Academy Performance Dashboard</div>
+        <div class="dash-sub">Live data from all coaches across all age groups</div>
+      </div>
+      <div class="dash-controls">
+        <select id="dash-term" onchange="renderDashboard()">
+          <option value="1">Term 1 (Aug-Oct)</option>
+          <option value="2">Term 2 (Nov-Jan)</option>
+          <option value="3">Term 3 (Feb-Apr)</option>
+        </select>
+        <button class="btn-primary" onclick="renderDashboard()">Refresh</button>
+      </div>
+
+      <!-- SUMMARY METRICS -->
+      <div class="dash-metric-grid" id="dash-metrics"></div>
+
+      <!-- DNA COMPLIANCE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Team DNA Compliance</div>
+        <div class="dash-section-sub">How consistently is the team executing the game model across all age groups?</div>
+        <div id="dash-dna"></div>
+      </div>
+
+      <!-- RATINGS BY GROUP -->
+      <div class="dash-section">
+        <div class="dash-section-title">Average ratings by age group</div>
+        <div class="dash-section-sub">Training and match averages across the academy this term</div>
+        <div id="dash-ratings"></div>
+      </div>
+
+      <!-- BLOCK COVERAGE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Curriculum block coverage</div>
+        <div class="dash-section-sub">Which blocks have been delivered and how many sessions per block</div>
+        <div id="dash-blocks"></div>
+      </div>
+
+      <!-- PLAYER FLAGS -->
+      <div class="dash-section">
+        <div class="dash-section-title">Players to review</div>
+        <div class="dash-section-sub">Players averaging below 2.5 across two or more categories this term</div>
+        <div id="dash-flags"></div>
+      </div>
+
+      <!-- FULL TABLE -->
+      <div class="dash-section">
+        <div class="dash-section-title">Full player table</div>
+        <div class="dash-filter-row">
+          <select id="dash-filter-group" onchange="renderDashboard()">
+            <option value="all">All groups</option>
+            <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+          </select>
+        </div>
+        <div id="dash-table"></div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="view-admin" class="view hidden">
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('coaches',this)">Coaches</button>
+        <button class="admin-tab" onclick="switchAdminTab('players',this)">Players</button>
+        <button class="admin-tab" onclick="switchAdminTab('import',this)">Import players</button>
+        <button class="admin-tab" onclick="switchAdminTab('terms',this)">Terms</button>
+        <button class="admin-tab" onclick="switchAdminTab('halfterms',this)">Half terms</button>
+        <button class="admin-tab" onclick="switchAdminTab('bulkidp',this)">Bulk IDP</button>
+      </div>
+
+      <!-- COACHES TAB -->
+      <div id="admin-coaches" class="admin-panel">
+        <div class="form-card">
+          <div class="form-section-title">Add coach</div>
+          <div class="form-row">
+            <div class="form-group"><label>Name</label><input type="text" id="ac-name" placeholder="e.g. Dave Wilson"></div>
+            <div class="form-group"><label>PIN (4-8 digits)</label><input type="password" id="ac-pin" maxlength="8" placeholder="e.g. 4821"></div>
+            <div class="form-group"><label>Role</label><input type="text" id="ac-role" placeholder="e.g. U16 Lead Coach"></div>
+            <div class="form-group"><label>Phase</label>
+              <select id="ac-phase">
+                <option value="both">Both phases</option>
+                <option value="1">Phase 1 (U14 and U15)</option>
+                <option value="2">Phase 2 (U16 and U18)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Admin access</label>
+              <select id="ac-admin"><option value="false">No</option><option value="true">Yes</option></select>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="addCoach()">Add coach</button>
+          <div id="coach-status" class="status-msg"></div>
+        </div>
+        <div id="coaches-list" class="data-list"></div>
+      </div>
+
+      <!-- PLAYERS TAB -->
+      <div id="admin-players" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Add player manually</div>
+          <div class="form-row">
+            <div class="form-group"><label>First name</label><input type="text" id="ap-fname"></div>
+            <div class="form-group"><label>Last name</label><input type="text" id="ap-lname"></div>
+            <div class="form-group"><label>DOB</label><input type="date" id="ap-dob"></div>
+            <div class="form-group"><label>Age group</label>
+              <select id="ap-group"><option>U14</option><option>U15</option><option>U16</option><option>U18</option></select>
+            </div>
+            <div class="form-group"><label>Position</label>
+              <select id="ap-pos"><option>GK</option><option>CB</option><option>RB</option><option>LB</option><option>CDM</option><option>CM</option><option>CAM</option><option>RW</option><option>LW</option><option>ST</option></select>
+            </div>
+            <div class="form-group"><label>Player email</label><input type="email" id="ap-email" placeholder="optional"></div>
+            <div class="form-group"><label>Parent email</label><input type="email" id="ap-pemail" placeholder="optional"></div>
+          </div>
+          <button class="btn-primary" onclick="addPlayerManual()">Add player</button>
+          <div id="player-status" class="status-msg"></div>
+        </div>
+        <div id="admin-players-list" class="data-list"></div>
+      </div>
+
+      <!-- IMPORT TAB -->
+      <div id="admin-import" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Import from Google Sheets</div>
+          <p class="help-text">Your sheet must have headers in row 1 and player data from row 2. Required columns: FirstName, LastName, DOB (YYYY-MM-DD), AgeGroup, Position. Optional: PlayerEmail, ParentEmail.</p>
+          <div class="form-group"><label>Google Sheet ID</label>
+            <input type="text" id="import-sheet-id" placeholder="Paste Sheet ID here">
+          </div>
+          <div class="form-group"><label>Google Sheets API Key</label>
+            <input type="password" id="import-api-key" placeholder="Paste API key here">
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="importFromSheets()">Import players</button>
+            <button class="btn-secondary" onclick="saveImportConfig()">Save config</button>
+          </div>
+          <div id="import-status" class="status-msg"></div>
+        </div>
+      </div>
+
+      <!-- TERMS TAB -->
+      <div id="admin-terms" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Term dates</div>
+          <p class="help-text">Set the start and end dates for each term. These are used to group data in the IDP.</p>
+          <div id="term-fields"></div>
+          <button class="btn-primary" onclick="saveTermDates()">Save term dates</button>
+          <div id="terms-status" class="status-msg"></div>
+        </div>
+      </div>
+
+      <!-- HALF TERMS TAB -->
+      <div id="admin-halfterms" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Half-term review windows</div>
+          <p class="help-text">Define up to 6 half-term windows. Each becomes a selectable period in the Half-Term Review tab. Use 6-week blocks aligned to your season.</p>
+          <div id="halfterm-fields"></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn-primary" onclick="saveHalfTerms()">Save half terms</button>
+            <button class="btn-secondary" onclick="addHalfTermRow()">+ Add window</button>
+          </div>
+          <div id="halfterms-status" class="status-msg"></div>
+        </div>
+      </div>
+
+      <!-- BULK IDP TAB -->
+      <div id="admin-bulkidp" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Send and print all IDPs</div>
+          <p class="help-text">Select an age group and term to generate IDPs for all players in that group. You can then print all or send emails individually.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Age group</label>
+              <select id="bulk-group">
+                <option value="">Select group...</option>
+                <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Term</label>
+              <select id="bulk-term">
+                <option value="1">Term 1 (Aug-Oct)</option>
+                <option value="2">Term 2 (Nov-Jan)</option>
+                <option value="3">Term 3 (Feb-Apr)</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="generateBulkIDPs()">Generate all IDPs</button>
+            <button class="btn-secondary" onclick="printBulkIDPs()">Print all</button>
+          </div>
+          <div id="bulk-status" class="status-msg"></div>
+        </div>
+        <div id="bulk-idp-list"></div>
+      </div>
+
+    </div><!-- /admin -->
+
+  </main>
+</div><!-- /app -->
+
+<!-- PLAYER PROFILE MODAL -->
+<div id="modal-player" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div id="modal-player-name" class="modal-title"></div>
+      <button class="modal-close" onclick="closeModal('modal-player')">✕</button>
+    </div>
+    <div id="modal-player-content"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/firebase.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
