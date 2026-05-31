@@ -277,6 +277,7 @@ window.openIDPForPlayer = function(pid) {
 
 // ── TRAINING VIEW ─────────────────────────────────────────────────
 function initTrainingView() {
+  resetAttendance();
   const grpSel = document.getElementById('tr-group');
   const groups = coachPhaseGroups();
   grpSel.innerHTML = '<option value="">Select group...</option>' +
@@ -370,33 +371,31 @@ window.loadTrainingPlayers = function() {
   if (!players.length) { container.innerHTML = '<div class="empty-state">No players in this group.</div>'; return; }
 
   container.innerHTML = players.map(([id, p]) => `
-    <div class="report-player-row">
+    <div class="report-player-row" id="row_${id}">
       <div class="report-player-header">
         <div class="player-avatar" style="width:34px;height:34px;font-size:12px;">${initials(p)}</div>
         <div class="report-player-name">${p.fname} ${p.lname}</div>
         <span class="badge badge-pos">${p.pos}</span>
+        <div class="attendance-btns">
+          <button class="att-btn" id="att_injured_${id}" onclick="setAttendance('${id}','injured','tr')" title="Injured">🤕</button>
+          <button class="att-btn" id="att_absent_${id}"  onclick="setAttendance('${id}','absent','tr')"  title="Absent">❌</button>
+        </div>
       </div>
-      <div class="rating-group">
+      <div class="rating-group" id="ratings_${id}">
         <div class="rating-item">
           <div class="rating-label">Attitude</div>
           <div class="rating-hint">Effort levels and intensity throughout the session</div>
-          <div class="stars" id="tr_att_${id}" data-val="3">
-            ${buildStars(`tr_att_${id}`, 3)}
-          </div>
+          <div class="stars" id="tr_att_${id}" data-val="3">${buildStars(`tr_att_${id}`, 3)}</div>
         </div>
         <div class="rating-item">
           <div class="rating-label">Communication</div>
           <div class="rating-hint">Did they give feedback and communicate with teammates?</div>
-          <div class="stars" id="tr_comm_${id}" data-val="3">
-            ${buildStars(`tr_comm_${id}`, 3)}
-          </div>
+          <div class="stars" id="tr_comm_${id}" data-val="3">${buildStars(`tr_comm_${id}`, 3)}</div>
         </div>
         <div class="rating-item">
           <div class="rating-label">Performance</div>
           <div class="rating-hint">Overall performance and contribution to the session</div>
-          <div class="stars" id="tr_perf_${id}" data-val="3">
-            ${buildStars(`tr_perf_${id}`, 3)}
-          </div>
+          <div class="stars" id="tr_perf_${id}" data-val="3">${buildStars(`tr_perf_${id}`, 3)}</div>
         </div>
       </div>
     </div>
@@ -445,6 +444,7 @@ window.onMatchGroupChange = function() {
 };
 
 function initMatchView() {
+  resetAttendance();
   const grpSel = document.getElementById('mr-group');
   const groups = coachPhaseGroups();
   grpSel.innerHTML = '<option value="">Select group...</option>' +
@@ -485,15 +485,19 @@ window.loadMatchPlayers = function() {
   if (!players.length) { container.innerHTML = '<div class="empty-state">No players in this group.</div>'; return; }
 
   container.innerHTML = players.map(([id, p]) => `
-    <div class="report-player-row">
+    <div class="report-player-row" id="mr_row_${id}">
       <div class="report-player-header">
         <div class="player-avatar" style="width:34px;height:34px;font-size:12px;">${initials(p)}</div>
         <div class="report-player-name">${p.fname} ${p.lname}</div>
         <select class="match-pos-select" id="mr_pos_${id}">
           ${POSITIONS.map(pos => `<option ${pos === p.pos ? 'selected' : ''}>${pos}</option>`).join('')}
         </select>
+        <div class="attendance-btns">
+          <button class="att-btn" id="mr_att_injured_${id}" onclick="setAttendance('${id}','injured','mr')" title="Injured">🤕</button>
+          <button class="att-btn" id="mr_att_absent_${id}"  onclick="setAttendance('${id}','absent','mr')"  title="Absent">❌</button>
+        </div>
       </div>
-      <div class="rating-group">
+      <div class="rating-group" id="mr_ratings_${id}">
         <div class="rating-item">
           <div class="rating-label">Mindset</div>
           <div class="rating-hint">Aggressive without the ball, calm on the ball, selfless movement</div>
@@ -525,19 +529,22 @@ window.saveMatchReport = async function() {
   const players = Object.entries(allPlayers).filter(([id, p]) => p.group === group);
   const entries = {};
   players.forEach(([id]) => {
-    const perfEl = document.getElementById(`mr_perf_${id}`);
-    const tactEl = document.getElementById(`mr_tact_${id}`);
-    const behEl  = document.getElementById(`mr_beh_${id}`);
-    const posEl  = document.getElementById(`mr_pos_${id}`);
+    const attendance = getAttendanceForPlayer(id);
+    if (attendance !== 'present') {
+      entries[id] = { attendance, position: 'N/A' };
+      return;
+    }
     const mindsetEl  = document.getElementById(`mr_mindset_${id}`);
     const physicalEl = document.getElementById(`mr_physical_${id}`);
     const impactEl   = document.getElementById(`mr_impact_${id}`);
+    const posEl      = document.getElementById(`mr_pos_${id}`);
     if (mindsetEl) {
       entries[id] = {
-        mindset:  parseInt(mindsetEl.dataset.val  || 3),
-        physical: parseInt(physicalEl?.dataset.val || 3),
-        impact:   parseInt(impactEl?.dataset.val   || 3),
-        position: posEl?.value || 'N/A'
+        attendance: 'present',
+        mindset:    parseInt(mindsetEl.dataset.val   || 3),
+        physical:   parseInt(physicalEl?.dataset.val || 3),
+        impact:     parseInt(impactEl?.dataset.val   || 3),
+        position:   posEl?.value || 'N/A'
       };
     }
   });
@@ -841,11 +848,32 @@ window.renderIDP = function() {
           <div class="idp-metric-grid">
             <div class="idp-metric"><div class="idp-metric-val">${trainSessions.length}</div><div class="idp-metric-lbl">Training sessions</div></div>
             <div class="idp-metric"><div class="idp-metric-val">${matchSessions.length}</div><div class="idp-metric-lbl">Matches</div></div>
-            <div class="idp-metric"><div class="idp-metric-val">${trainPerfAvg || 'N/A'}</div><div class="idp-metric-lbl">Training performance avg</div></div>
-            <div class="idp-metric"><div class="idp-metric-val">${trainAttAvg || 'N/A'}</div><div class="idp-metric-lbl">Training attitude avg</div></div>
-            <div class="idp-metric"><div class="idp-metric-val">${matchPerfAvg || 'N/A'}</div><div class="idp-metric-lbl">Match performance avg</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${attendStats ? attendStats.pct + '%' : 'N/A'}</div><div class="idp-metric-lbl">Attendance</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${trainPerfAvg || 'N/A'}</div><div class="idp-metric-lbl">Training avg</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${matchMindsetAvg || 'N/A'}</div><div class="idp-metric-lbl">Match avg</div></div>
           </div>
+          ${attendStats && attendStats.pct < 85 ? `
+          <div style="background:var(--red-light);border-left:4px solid var(--red);border-radius:var(--r-sm);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--red);">
+            <strong>Attendance flag:</strong> ${attendStats.pct}% attendance this term is below the 85% threshold.
+            ${attendStats.injured ? `${attendStats.injured} session${attendStats.injured!==1?'s':''} missed through injury.` : ''}
+            ${attendStats.absent  ? `${attendStats.absent} session${attendStats.absent!==1?'s':''} absent without reason.` : ''}
+          </div>` : ''}
         </div>
+
+        ${attendStats && attendStats.total > 0 ? `
+        <div class="idp-section">
+          <div class="idp-section-title">Attendance</div>
+          <div class="idp-metric-grid">
+            <div class="idp-metric"><div class="idp-metric-val" style="color:${attendStats.pct < 85 ? 'var(--red)' : 'var(--green-dark)'}">${attendStats.pct}%</div><div class="idp-metric-lbl">Attendance rate</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${attendStats.present}</div><div class="idp-metric-lbl">Present</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${attendStats.injured}</div><div class="idp-metric-lbl">Injured</div></div>
+            <div class="idp-metric"><div class="idp-metric-val">${attendStats.absent}</div><div class="idp-metric-lbl">Absent</div></div>
+          </div>
+          <div class="idp-bar-row">
+            <div class="idp-bar-labels"><span>Attendance</span><span>${attendStats.pct}%</span></div>
+            <div class="idp-bar-track"><div class="idp-bar-fill" style="width:${attendStats.pct}%;background:${attendStats.pct < 85 ? 'linear-gradient(90deg,#e07000,#f09030)' : 'linear-gradient(90deg,#1a5c28,#2A8C3F)'};"></div></div>
+          </div>
+        </div>` : ''}
 
         ${trainSessions.length ? `
         <div class="idp-section">
@@ -979,6 +1007,7 @@ window.switchAdminTab = function(tab, btn) {
   if (tab === 'terms')     renderTermFields();
   if (tab === 'halfterms') renderHalfTermFields();
   if (tab === 'bulkidp')    { document.getElementById('bulk-idp-list').innerHTML = ''; setStatus('bulk-status','',''); }
+  if (tab === 'data')       { document.getElementById('dm-entries-list').innerHTML = ''; document.getElementById('dm-type').value = ''; document.getElementById('dm-status').textContent = ''; }
 };
 
 window.addCoach = async function() {
@@ -1184,6 +1213,51 @@ window.saveTermDates = async function() {
   setStatus('terms-status', 'Term dates saved.', true);
 };
 
+// ── ATTENDANCE ───────────────────────────────────────────────────
+const attendanceState = {}; // pid -> 'present'|'injured'|'absent'
+
+window.setAttendance = function(pid, status, prefix) {
+  const current = attendanceState[pid] || 'present';
+  // Toggle off if already set
+  const newStatus = current === status ? 'present' : status;
+  attendanceState[pid] = newStatus;
+
+  const rowId    = prefix === 'tr' ? `row_${pid}`        : `mr_row_${pid}`;
+  const injBtnId = prefix === 'tr' ? `att_injured_${pid}` : `mr_att_injured_${pid}`;
+  const absBtnId = prefix === 'tr' ? `att_absent_${pid}`  : `mr_att_absent_${pid}`;
+  const ratingsId = prefix === 'tr' ? `ratings_${pid}`    : `mr_ratings_${pid}`;
+
+  const row     = document.getElementById(rowId);
+  const injBtn  = document.getElementById(injBtnId);
+  const absBtn  = document.getElementById(absBtnId);
+  const ratings = document.getElementById(ratingsId);
+
+  // Reset button states
+  if (injBtn) injBtn.classList.remove('att-active-injured');
+  if (absBtn) absBtn.classList.remove('att-active-absent');
+  if (row)    row.classList.remove('att-row-injured','att-row-absent');
+  if (ratings) ratings.style.opacity = '1';
+  if (ratings) ratings.style.pointerEvents = 'auto';
+
+  if (newStatus === 'injured') {
+    if (injBtn) injBtn.classList.add('att-active-injured');
+    if (row)    row.classList.add('att-row-injured');
+    if (ratings) { ratings.style.opacity = '0.3'; ratings.style.pointerEvents = 'none'; }
+  } else if (newStatus === 'absent') {
+    if (absBtn) absBtn.classList.add('att-active-absent');
+    if (row)    row.classList.add('att-row-absent');
+    if (ratings) { ratings.style.opacity = '0.3'; ratings.style.pointerEvents = 'none'; }
+  }
+};
+
+function resetAttendance() {
+  Object.keys(attendanceState).forEach(k => delete attendanceState[k]);
+}
+
+function getAttendanceForPlayer(pid) {
+  return attendanceState[pid] || 'present';
+}
+
 // ── DNA TOGGLE ───────────────────────────────────────────────────
 window.setDNA = function(groupId, val, btn) {
   const group = document.getElementById(groupId);
@@ -1229,6 +1303,23 @@ function calcAvg(vals) {
   const clean = (vals||[]).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   if (!clean.length) return null;
   return (clean.reduce((a, b) => a + b, 0) / clean.length).toFixed(1);
+}
+
+function getPlayerAttendanceStats(pid) {
+  const allSessions = [
+    ...Object.values(allTraining),
+    ...Object.values(allMatches)
+  ].filter(s => s.entries?.[pid]);
+
+  const total    = allSessions.length;
+  if (!total) return null;
+
+  const present  = allSessions.filter(s => !s.entries[pid].attendance || s.entries[pid].attendance === 'present').length;
+  const injured  = allSessions.filter(s => s.entries[pid].attendance === 'injured').length;
+  const absent   = allSessions.filter(s => s.entries[pid].attendance === 'absent').length;
+  const pct      = Math.round((present / total) * 100);
+
+  return { total, present, injured, absent, pct };
 }
 
 function getPlayerOverallAvg(pid) {
@@ -1508,10 +1599,12 @@ window.renderDashboard = function() {
                      mAvg('mindset'),  mAvg('physical'),       mAvg('impact')]
       .map(v => parseFloat(v)).filter(v => !isNaN(v));
 
-    const lowCount = allAvgs.filter(v => v < 2.5).length;
-    if (lowCount >= 2) {
+    const lowCount   = allAvgs.filter(v => v < 2.5).length;
+    const attStats   = getPlayerAttendanceStats(pid);
+    const attFlag    = attStats && attStats.pct < 85;
+    if (lowCount >= 2 || attFlag) {
       const overall = allAvgs.length ? (allAvgs.reduce((a,b)=>a+b,0)/allAvgs.length).toFixed(1) : 'N/A';
-      flags.push({ pid, p, overall, lowCount });
+      flags.push({ pid, p, overall, lowCount, attStats, attFlag });
     }
   });
 
@@ -1525,7 +1618,10 @@ window.renderDashboard = function() {
           <div class="flag-name">${f.p.fname} ${f.p.lname}</div>
           <div class="flag-detail">${f.p.group} &bull; ${f.p.pos} &bull; Overall avg: ${f.overall}/5</div>
         </div>
-        <div class="flag-badge">${f.lowCount} areas below 2.5</div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          ${f.lowCount >= 2 ? `<span class="flag-badge">${f.lowCount} areas below 2.5</span>` : ''}
+          ${f.attFlag ? `<span class="flag-badge" style="background:var(--amber-light);color:var(--gold);">${f.attStats.pct}% attendance</span>` : ''}
+        </div>
         <button class="btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="openIDPForPlayer('${f.pid}')">View IDP</button>
       </div>
     `).join('');
@@ -1592,5 +1688,76 @@ window.toggleCoachRoleFields = function() {
   } else {
     phaseRow.classList.remove('hidden');
     agRow.classList.add('hidden');
+  }
+};
+
+// ── DATA MANAGEMENT ───────────────────────────────────────────────
+window.loadDataEntries = function() {
+  const type  = document.getElementById('dm-type')?.value;
+  const group = document.getElementById('dm-group')?.value;
+  const list  = document.getElementById('dm-entries-list');
+  const status = document.getElementById('dm-status');
+
+  if (!type) { list.innerHTML = ''; return; }
+
+  const sourceMap = { training: allTraining, matches: allMatches, monthly: allMonthly };
+  const source = sourceMap[type] || {};
+  const entries = Object.entries(source)
+    .filter(([key, e]) => !group || e.group === group || e.pid)
+    .sort((a, b) => {
+      const da = a[1].date || a[1].month || '';
+      const db = b[1].date || b[1].month || '';
+      return db.localeCompare(da);
+    });
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state">No entries found.</div>';
+    status.textContent = '';
+    return;
+  }
+
+  status.textContent = `${entries.length} entr${entries.length !== 1 ? 'ies' : 'y'} found.`;
+  status.className = 'status-msg status-ok';
+
+  list.innerHTML = entries.map(([key, e]) => {
+    let title = '';
+    let meta  = '';
+
+    if (type === 'training') {
+      title = `Training — ${e.group || 'Unknown'} — ${e.date || 'No date'}`;
+      const count = Object.keys(e.entries || {}).length;
+      meta  = `Block ${e.block || 'N/A'} &bull; ${count} player${count !== 1 ? 's' : ''} rated &bull; Coach: ${e.coach || 'Unknown'}`;
+    } else if (type === 'matches') {
+      title = `Match — ${e.group || 'Unknown'} vs ${e.opposition || 'Unknown'} — ${e.date || 'No date'}`;
+      const count = Object.keys(e.entries || {}).length;
+      meta  = `${e.venue || ''} &bull; ${count} player${count !== 1 ? 's' : ''} rated &bull; Coach: ${e.coach || 'Unknown'}`;
+    } else if (type === 'monthly') {
+      const p = allPlayers[e.pid];
+      const pName = p ? `${p.fname} ${p.lname}` : 'Unknown player';
+      title = `Review — ${pName} — ${e.month || 'No date'}`;
+      meta  = `Coach: ${e.coach || 'Unknown'}`;
+    }
+
+    return `<div class="data-entry-row">
+      <div class="data-entry-info">
+        <div class="data-entry-title">${title}</div>
+        <div class="data-entry-meta">${meta}</div>
+      </div>
+      <button class="btn-delete-entry" onclick="deleteDataEntry('${type}','${key}','${title.replace(/'/g,'').replace(/"/g,'')}')">
+        Delete
+      </button>
+    </div>`;
+  }).join('');
+};
+
+window.deleteDataEntry = async function(type, key, label) {
+  if (!confirm(`Delete this entry?\n\n${label}\n\nThis cannot be undone.`)) return;
+  try {
+    await remove(ref(db, `${type}/${key}`));
+    toast('Entry deleted.');
+    loadDataEntries();
+  } catch(err) {
+    toast('Error deleting entry. Try again.');
+    console.error(err);
   }
 };
