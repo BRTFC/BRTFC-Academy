@@ -453,6 +453,12 @@ function initMatchView() {
   const compRow = document.getElementById('mr-competition-row');
   if (compRow) compRow.style.display = 'none';
 
+  // Reset DNA stars to 3
+  ['dna_forward','dna_ballspeed','dna_finalthird','dna_press','dna_recovery'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.dataset.val = 3; el.querySelectorAll('.star').forEach((s,i) => s.classList.toggle('on', i < 3)); const cnt = el.querySelector('.star-count'); if(cnt) cnt.textContent = '3/5'; }
+  });
+
   // Auto-detect block from match date
   const mrDate = document.getElementById('mr-date')?.value;
   const detectedBlock = autoDetectBlock(mrDate);
@@ -536,16 +542,13 @@ window.saveMatchReport = async function() {
     }
   });
 
-  const dnaVal = id => {
-    const el = document.querySelector(`#${id} .active-yes, #${id} .active-partly, #${id} .active-no`);
-    return el?.dataset.val || '';
-  };
+  const dnaStarVal = id => parseInt(document.getElementById(id)?.dataset.val || 3);
   const dna = {
-    forward:    dnaVal('dna-forward'),
-    ballspeed:  dnaVal('dna-ballspeed'),
-    finalthird: dnaVal('dna-finalthird'),
-    press:      dnaVal('dna-press'),
-    recovery:   dnaVal('dna-recovery')
+    forward:    dnaStarVal('dna_forward'),
+    ballspeed:  dnaStarVal('dna_ballspeed'),
+    finalthird: dnaStarVal('dna_finalthird'),
+    press:      dnaStarVal('dna_press'),
+    recovery:   dnaStarVal('dna_recovery')
   };
 
   const block       = document.getElementById('mr-block')?.value       || '';
@@ -1413,29 +1416,20 @@ window.renderDashboard = function() {
     dnaEl.innerHTML = '<div style="font-size:13px;color:var(--text3);">No match data for this term yet.</div>';
   } else {
     dnaEl.innerHTML = dnaKeys.map(dk => {
-      const vals = termMatches.map(m => m.dna?.[dk.key]).filter(Boolean);
-      const yes    = vals.filter(v => v === 'yes').length;
-      const partly = vals.filter(v => v === 'partly').length;
-      const no     = vals.filter(v => v === 'no').length;
-      const total  = vals.length || 1;
-      const pctY   = Math.round((yes    / total) * 100);
-      const pctP   = Math.round((partly / total) * 100);
-      const pctN   = Math.round((no     / total) * 100);
+      const vals = termMatches.map(m => parseFloat(m.dna?.[dk.key])).filter(v => !isNaN(v) && v > 0);
+      const avg  = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+      const pct  = Math.round((avg/5)*100);
+      const colour = avg > 3.5 ? 'linear-gradient(90deg,#8a6a00,#B8922A)' : avg >= 2.5 ? 'linear-gradient(90deg,#1a5c28,#2A8C3F)' : 'linear-gradient(90deg,#e07000,#f09030)';
       return `<div class="dna-bar-row">
         <div class="dna-bar-label">${dk.label}</div>
         <div class="dna-bar-wrap">
-          <div class="dna-seg-track">
-            ${yes    ? `<div class="dna-seg dna-seg-yes"    style="flex:${yes}">${pctY}%</div>`    : ''}
-            ${partly ? `<div class="dna-seg dna-seg-partly" style="flex:${partly}">${pctP}%</div>` : ''}
-            ${no     ? `<div class="dna-seg dna-seg-no"     style="flex:${no}">${pctN}%</div>`     : ''}
-            ${!vals.length ? `<div class="dna-seg dna-seg-empty" style="flex:1">No data</div>`    : ''}
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+            <div class="group-bar-track" style="flex:1;height:10px;">
+              <div class="group-bar-fill" style="width:${pct}%;background:${colour};height:100%;border-radius:999px;"></div>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:var(--text);width:36px;text-align:right;">${avg ? avg.toFixed(1) : 'N/A'}/5</span>
           </div>
-          <div class="dna-bar-counts">
-            <span class="dna-count-yes">✓ Yes: ${yes}</span>
-            <span class="dna-count-partly">~ Partly: ${partly}</span>
-            <span class="dna-count-no">✗ No: ${no}</span>
-            <span style="color:var(--text3);">(${vals.length} matches rated)</span>
-          </div>
+          <div style="font-size:11px;color:var(--text3);">${vals.length} match${vals.length!==1?'es':''} rated</div>
         </div>
       </div>`;
     }).join('');
