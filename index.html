@@ -333,6 +333,7 @@
         <button class="admin-tab" onclick="switchAdminTab('terms',this)">Terms</button>
         <button class="admin-tab" onclick="switchAdminTab('halfterms',this)">Half terms</button>
         <button class="admin-tab" onclick="switchAdminTab('bulkidp',this)">Bulk IDP</button>
+        <button class="admin-tab" onclick="switchAdminTab('data',this)">Data</button>
       </div>
 
       <!-- COACHES TAB -->
@@ -468,6 +469,34 @@
           <div id="bulk-status" class="status-msg"></div>
         </div>
         <div id="bulk-idp-list"></div>
+      </div>
+
+      <!-- DATA MANAGEMENT TAB -->
+      <div id="admin-data" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Data management</div>
+          <p class="help-text">Find and delete incorrect entries. Deletions are permanent and cannot be undone.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Data type</label>
+              <select id="dm-type" onchange="loadDataEntries()">
+                <option value="">Select type...</option>
+                <option value="training">Training sessions</option>
+                <option value="matches">Match reports</option>
+                <option value="monthly">Half-term reviews</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Age group</label>
+              <select id="dm-group" onchange="loadDataEntries()">
+                <option value="">All groups</option>
+                <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+              </select>
+            </div>
+          </div>
+          <div id="dm-status" class="status-msg"></div>
+        </div>
+        <div id="dm-entries-list"></div>
       </div>
 
     </div><!-- /admin -->
