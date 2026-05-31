@@ -43,8 +43,8 @@ function coachPhaseGroups() {
 
 function canAccessNav(view) {
   if (isAdmin())     return true;
-  if (isPhaseLead()) return view !== 'admin';
-  if (isManager())   return view === 'match' || view === 'idp' || view === 'players';
+  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard'].includes(view);
+  if (isManager())   return ['players','match','idp'].includes(view);
   return false;
 }
 
@@ -101,7 +101,7 @@ window.doLogin = function() {
   document.getElementById('login-error').textContent = '';
   document.getElementById('header-coach-name').textContent = currentCoach.name;
 
-  // Apply nav visibility based on role
+  // Show only permitted nav items based on role
   const navViews = ['players','training','match','monthly','idp','admin','dashboard'];
   navViews.forEach(v => {
     const btn = document.querySelector(`[data-view="${v}"]`);
@@ -112,11 +112,6 @@ window.doLogin = function() {
       btn.classList.add('hidden');
     }
   });
-
-  // Admin-only items
-  if (currentCoach.admin) {
-    document.querySelectorAll('.nav-admin').forEach(el => el.classList.remove('hidden'));
-  }
 
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-app').classList.remove('hidden');
@@ -133,7 +128,8 @@ window.doLogout = function() {
   currentCoach = null;
   document.getElementById('screen-app').classList.add('hidden');
   document.getElementById('screen-login').classList.remove('hidden');
-  document.querySelectorAll('.nav-admin').forEach(el => el.classList.add('hidden'));
+  // Hide all nav buttons ready for next login
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.add('hidden'));
 };
 
 // ── VIEW SWITCHING ────────────────────────────────────────────────

@@ -24,7 +24,7 @@
 <div id="screen-app" class="screen hidden">
   <header class="app-header">
     <div class="header-left">
-      <span class="header-crest">⚽</span>
+      <img src="images/crest.png" alt="BRTFC" style="width:28px;height:28px;object-fit:contain;" onerror="this.outerHTML='<span>⚽</span>'">
       <span class="header-title">BRTFC Academy</span>
     </div>
     <div class="header-right">
@@ -34,13 +34,13 @@
   </header>
 
   <nav class="app-nav" id="app-nav">
-    <button class="nav-btn active" data-view="players" onclick="switchView('players',this)">Players</button>
-    <button class="nav-btn" data-view="training" onclick="switchView('training',this)">Training</button>
-    <button class="nav-btn" data-view="match" onclick="switchView('match',this)">Match</button>
-    <button class="nav-btn" data-view="monthly" onclick="switchView('monthly',this)">Reviews</button>
-    <button class="nav-btn" data-view="idp" onclick="switchView('idp',this)">IDP</button>
-    <button class="nav-btn nav-admin hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
-    <button class="nav-btn nav-admin hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
+    <button class="nav-btn hidden" data-view="players" onclick="switchView('players',this)">Players</button>
+    <button class="nav-btn hidden" data-view="training" onclick="switchView('training',this)">Training</button>
+    <button class="nav-btn hidden" data-view="match" onclick="switchView('match',this)">Match</button>
+    <button class="nav-btn hidden" data-view="monthly" onclick="switchView('monthly',this)">Reviews</button>
+    <button class="nav-btn hidden" data-view="idp" onclick="switchView('idp',this)">IDP</button>
+    <button class="nav-btn hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
+    <button class="nav-btn hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
   </nav>
 
   <main class="app-main">
