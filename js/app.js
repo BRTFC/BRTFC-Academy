@@ -793,14 +793,12 @@ window.renderIDP = function() {
   const goals = Object.entries(allGoals).filter(([id, g]) => g.pid === pid);
 
   // Averages
-  const trainPerfAvg = calcAvg(trainSessions.map(t => t.entries[pid].performance));
-  const trainAttAvg  = calcAvg(trainSessions.map(t => t.entries[pid].attitude));
-  const trainCommAvg2 = calcAvg(trainSessions.map(t => t.entries[pid].communication));
-  const trainCommAvg = calcAvg(trainSessions.map(t => t.entries[pid].communication));
+  const trainPerfAvg    = calcAvg(trainSessions.map(t => t.entries[pid].performance));
+  const trainAttAvg     = calcAvg(trainSessions.map(t => t.entries[pid].attitude));
+  const trainCommAvg    = calcAvg(trainSessions.map(t => t.entries[pid].communication));
   const matchMindsetAvg  = calcAvg(matchSessions.map(m => m.entries[pid].mindset));
   const matchPhysicalAvg = calcAvg(matchSessions.map(m => m.entries[pid].physical));
   const matchImpactAvg   = calcAvg(matchSessions.map(m => m.entries[pid].impact));
-  const matchPerfAvg     = matchImpactAvg; // keep for overall calc
 
   const moAvgs = {};
   ['technical','tactical','behaviours','physical','nonNegotiables'].forEach(cat => {
@@ -823,6 +821,7 @@ window.renderIDP = function() {
     moAvgs.technical, moAvgs.tactical, moAvgs.behaviours, moAvgs.physical
   ].map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0));
 
+  const attendStats = getPlayerAttendanceStats(pid);
   const age  = p.dob ? calcAge(p.dob) : 'N/A';
   const year = new Date().getFullYear();
 
