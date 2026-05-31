@@ -51,6 +51,7 @@ function canAccessNav(view) {
 // ── BOOT ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   setTodayDates();
+  initTheme();
   listenData();
 
   document.getElementById('login-pin').addEventListener('keydown', e => {
@@ -124,6 +125,22 @@ window.doLogin = function() {
   }
 };
 
+// ── THEME ─────────────────────────────────────────────────────────
+window.toggleTheme = function() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('brtfc_theme', newTheme);
+  document.getElementById('theme-btn').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+};
+
+function initTheme() {
+  const saved = localStorage.getItem('brtfc_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+
 window.doLogout = function() {
   currentCoach = null;
   document.getElementById('screen-app').classList.add('hidden');
@@ -171,16 +188,19 @@ function renderPlayersView() {
   filtered.sort((a, b) => a[1].lname.localeCompare(b[1].lname));
   list.innerHTML = filtered.map(([id, p]) => {
     const avg = getPlayerOverallAvg(id);
+    const sessions = Object.values(allTraining).filter(t => t.entries?.[id]).length;
     return `<div class="player-card" onclick="openPlayerModal('${id}')">
       <div class="player-avatar">${initials(p)}</div>
       <div class="player-card-info">
         <div class="player-card-name">${p.fname} ${p.lname}</div>
         <div class="player-card-meta">
           <span class="badge badge-group">${p.group}</span>
-          <span class="badge badge-pos" style="margin-left:4px;">${p.pos}</span>
+          <span class="badge badge-pos">${p.pos}</span>
+          ${sessions ? `<span style="font-size:11px;color:var(--text3);">${sessions} sessions</span>` : ''}
         </div>
-        ${avg ? `<div style="font-size:12px;color:var(--text3);margin-top:3px;">Avg ${avg}/5</div>` : ''}
       </div>
+      ${avg ? `<div class="player-score"><div class="score-num">${avg}</div><div class="score-lbl">/ 5</div></div>` : ''}
+      <div class="chevron-right">›</div>
     </div>`;
   }).join('');
 }
