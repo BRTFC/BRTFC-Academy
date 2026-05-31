@@ -997,3 +997,8 @@ textarea { min-height: 88px; resize: vertical; }
   .modal-box { border-radius: var(--r-xl); max-height: 80vh; }
   .modal-handle { display: none; }
 }
+
+/* DNA STAR RATINGS */
+.dna-star-group { display: flex; flex-direction: column; gap: 16px; }
+.dna-star-item { display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.dna-star-item:last-child { border-bottom: none; padding-bottom: 0; }
