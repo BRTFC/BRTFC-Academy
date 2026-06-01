@@ -775,7 +775,7 @@ window.renderIDP = function() {
   if (!pid) { output.innerHTML = '<div class="empty-state">Select a player to generate their IDP.</div>'; return; }
 
   const p = allPlayers[pid];
-  if (!p) return;
+  if (!p) { output.innerHTML = '<div class="empty-state">Player not found.</div>'; return; }
 
   const termLabel = { '1': 'Term 1 (Aug-Oct)', '2': 'Term 2 (Nov-Jan)', '3': 'Term 3 (Feb-Apr)' }[termNo];
   const termRange = getTermRange(parseInt(termNo));
@@ -824,7 +824,9 @@ window.renderIDP = function() {
   const attendStats = getPlayerAttendanceStats(pid);
   const age  = p.dob ? calcAge(p.dob) : 'N/A';
   const year = new Date().getFullYear();
+  const hasData = trainSessions.length > 0 || matchSessions.length > 0 || monthlyReports.length > 0 || goals.length > 0;
 
+  try {
   output.innerHTML = `
     <div class="idp-doc">
       <div class="idp-header-band">
@@ -878,7 +880,7 @@ window.renderIDP = function() {
         <div class="idp-section">
           <div class="idp-section-title">Training performance</div>
           ${idpBar('Attitude', trainAttAvg)}
-          ${idpBar('Communication', trainCommAvg2)}
+          ${idpBar('Communication', trainCommAvg)}
           ${idpBar('Performance', trainPerfAvg)}
           ${idpBar('Communication', trainCommAvg)}
         </div>` : ''}
@@ -971,7 +973,6 @@ window.emailIDPPrompt = function(pid) {
   const matchSessions = Object.values(allMatches).filter(m => m.entries?.[pid] && inTermRange(m.date, termRange));
   const trainPerfAvg = calcAvg(trainSessions.map(t => t.entries[pid].performance));
   const trainAttAvg  = calcAvg(trainSessions.map(t => t.entries[pid].attitude));
-  const trainCommAvg2 = calcAvg(trainSessions.map(t => t.entries[pid].communication));
   const trainCommAvg = calcAvg(trainSessions.map(t => t.entries[pid].communication));
   const matchPerfAvg = calcAvg(matchSessions.map(m => m.entries[pid].performance));
 
@@ -1336,9 +1337,9 @@ function getTermRange(termNo) {
   if (t?.start && t?.end) return { start: t.start, end: t.end };
   const y = new Date().getFullYear();
   const defaults = {
-    1: { start: `${y}-08-01`, end: `${y}-10-31` },
-    2: { start: `${y}-11-01`, end: `${y+1}-01-31` },
-    3: { start: `${y+1}-02-01`, end: `${y+1}-04-30` }
+    1: { start: `${y-1}-08-01`, end: `${y-1}-10-31` },
+    2: { start: `${y-1}-11-01`, end: `${y}-01-31` },
+    3: { start: `${y}-02-01`, end: `${y}-04-30` }
   };
   return defaults[termNo] || defaults[1];
 }
