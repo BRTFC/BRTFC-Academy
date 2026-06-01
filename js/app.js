@@ -826,7 +826,6 @@ window.renderIDP = function() {
   const year = new Date().getFullYear();
   const hasData = trainSessions.length > 0 || matchSessions.length > 0 || monthlyReports.length > 0 || goals.length > 0;
 
-  try {
   output.innerHTML = `
     <div class="idp-doc">
       <div class="idp-header-band">
