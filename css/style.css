@@ -1019,3 +1019,52 @@ textarea { min-height: 88px; resize: vertical; }
 .att-active-absent  { background: var(--red-light);   border-color: var(--red); }
 .att-row-injured { border-color: var(--amber); background: var(--amber-light); }
 .att-row-absent  { border-color: var(--red);   background: var(--red-light); }
+
+/* ── SQUAD INSIGHTS ──────────────────────────── */
+.insights-controls { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.insights-controls select { flex: 1; min-width: 140px; }
+.insights-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.125rem; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+.insights-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--green-dark); margin-bottom: 4px; }
+.insights-card-sub { font-size: 12px; color: var(--text3); margin-bottom: 1rem; line-height: 1.5; }
+
+/* HEATMAP */
+.ins-heatmap-wrap { overflow-x: auto; }
+.heatmap-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.heatmap-table th { padding: 6px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+.heatmap-table th:first-child { text-align: left; }
+.heatmap-table td { padding: 3px 3px; border-bottom: 1px solid var(--border); text-align: center; }
+.heatmap-table tr:last-child td { border-bottom: none; }
+.heatmap-name { text-align: left !important; font-weight: 600; font-size: 12px; white-space: nowrap; padding-right: 8px !important; }
+.heat-cell { width: 38px; height: 28px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; margin: 0 auto; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+.heatmap-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--text2); }
+.heat-legend-dot { width: 14px; height: 14px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+/* BLOCK IMPACT */
+.block-impact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; }
+.block-impact-item { background: var(--bg2); border-radius: var(--r-md); padding: 12px; border: 1px solid var(--border); }
+.block-impact-num { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 2px; }
+.block-impact-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 10px; line-height: 1.3; min-height: 30px; }
+.block-impact-bar-track { height: 8px; background: var(--bg3); border-radius: var(--r-full); overflow: hidden; margin-bottom: 6px; }
+.block-impact-bar-fill { height: 100%; border-radius: var(--r-full); transition: width 0.5s ease; }
+.block-impact-avg { font-size: 16px; font-weight: 800; color: var(--green-dark); }
+.block-impact-sessions { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* COHORT TABLE */
+.cohort-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cohort-table th { text-align: left; padding: 8px 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); border-bottom: 1px solid var(--border); }
+.cohort-table td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+.cohort-table tr:last-child td { border-bottom: none; }
+
+/* NAV icon for insights */
+.nav-btn[data-view="insights"]::before { content: "🔍"; }
+
+/* IDP REVIEW COMPARISON */
+.idp-review-comparison { display: flex; gap: 0; margin-bottom: 6px; align-items: flex-start; }
+.idp-review-attr-col { width: 90px; flex-shrink: 0; padding-right: 8px; }
+.idp-review-period-col { flex: 1; min-width: 0; padding: 0 6px; border-left: 1px solid var(--border); }
+.idp-review-period-label { font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idp-review-coach { font-size: 10px; color: var(--text3); margin-bottom: 8px; }
+.idp-review-attr-name { font-size: 12px; font-weight: 500; color: var(--text2); padding-top: 4px; }
+.idp-review-cat-section { margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.idp-review-cat-section:last-child { border-bottom: none; margin-bottom: 0; }
+.idp-review-cat-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
