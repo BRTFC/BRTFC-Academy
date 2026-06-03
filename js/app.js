@@ -847,9 +847,14 @@ window.renderIDP = function() {
   output.innerHTML = `
     <div class="idp-doc">
       <div class="idp-header-band">
-        <div class="idp-club-name">Bognor Regis Town FC</div>
-        <div class="idp-doc-title">Individual Development Plan</div>
-        <div class="idp-player-name">${p.fname} ${p.lname}</div>
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:12px;">
+          <img src="images/crest.png" alt="BRTFC" style="width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.3));flex-shrink:0;">
+          <div>
+            <div class="idp-club-name">Bognor Regis Town FC</div>
+            <div class="idp-doc-title">Individual Development Plan</div>
+            <div class="idp-player-name">${p.fname} ${p.lname}</div>
+          </div>
+        </div>
         <div class="idp-meta-row">
           <div class="idp-meta-item"><strong>${termLabel}</strong>Term</div>
           <div class="idp-meta-item"><strong>${p.group}</strong>Age group</div>
@@ -893,61 +898,222 @@ window.renderIDP = function() {
           </div>
         </div>` : ''}
 
-        ${trainSessions.length ? `
+        ${/* SEASON PROGRESSION CHART - all three terms */`
+        <div class="idp-section">
+          <div class="idp-section-title">Season progression</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Average scores across all three terms. Only terms with data are plotted.</div>
+          ${(function() {
+            const TERM_LABELS = { '1': 'Term 1', '2': 'Term 2', '3': 'Term 3' };
+            const METRICS = [
+              { label: 'Attitude',      colour: '#2A8C3F', getData: (tr,mt) => [...tr.map(t => t.entries[pid]?.attitude), ...mt.map(m => m.entries[pid]?.mindset)] },
+              { label: 'Communication', colour: '#185fa5', getData: (tr,mt) => tr.map(t => t.entries[pid]?.communication) },
+              { label: 'Performance',   colour: '#B8922A', getData: (tr,mt) => tr.map(t => t.entries[pid]?.performance) },
+              { label: 'Physical',      colour: '#C0272D', getData: (tr,mt) => mt.map(m => m.entries[pid]?.physical) },
+              { label: 'Impact',        colour: '#7b2d8b', getData: (tr,mt) => mt.map(m => m.entries[pid]?.impact) }
+            ];
+
+            // Build data per term per metric
+            const termData = [1,2,3].map(tn => {
+              const range = getTermRange(tn);
+              const tr = Object.values(allTraining).filter(t =>
+                t.entries?.[pid] && inTermRange(t.date, range) &&
+                (!t.entries[pid].attendance || t.entries[pid].attendance === 'present')
+              );
+              const mt = Object.values(allMatches).filter(m =>
+                m.entries?.[pid] && inTermRange(m.date, range) &&
+                (!m.entries[pid].attendance || m.entries[pid].attendance === 'present')
+              );
+              return { label: TERM_LABELS[tn], tr, mt, hasData: tr.length > 0 || mt.length > 0 };
+            });
+
+            const activeTerms = termData.filter(t => t.hasData);
+            if (activeTerms.length < 1) return '<div style="font-size:13px;color:var(--text3);">No data across terms yet. Scores will appear here as the season progresses.</div>';
+
+            // SVG chart
+            const W = 560, H = 180, PAD_L = 60, PAD_R = 20, PAD_T = 16, PAD_B = 32;
+            const chartW = W - PAD_L - PAD_R;
+            const chartH = H - PAD_T - PAD_B;
+            const xPositions = [1,2,3].map((_, i) => PAD_L + (i / 2) * chartW);
+            const valY = v => PAD_T + chartH - ((parseFloat(v) - 1) / 4) * chartH;
+
+            let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;" xmlns="http://www.w3.org/2000/svg">`;
+
+            // Grid lines and Y labels
+            [1,2,3,4,5].forEach(v => {
+              const y = valY(v);
+              svg += `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="${v === 1 || v === 5 ? 'none' : '3,3'}"/>`;
+              svg += `<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text3)">${v}</text>`;
+            });
+
+            // X axis term labels
+            [0,1,2].forEach(i => {
+              svg += `<text x="${xPositions[i]}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text2)">Term ${i+1}</text>`;
+            });
+
+            // Shade terms without data
+            termData.forEach((td, i) => {
+              if (!td.hasData) {
+                svg += `<rect x="${xPositions[i] - chartW/4}" y="${PAD_T}" width="${chartW/2}" height="${chartH}" fill="var(--bg3)" opacity="0.5"/>`;
+              }
+            });
+
+            // Plot each metric
+            METRICS.forEach(metric => {
+              const points = termData.map((td, i) => {
+                const vals = metric.getData(td.tr, td.mt)
+                  .map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+                const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+                return avg ? { x: xPositions[i], y: valY(avg), v: avg } : null;
+              });
+
+              const valid = points.filter(Boolean);
+              if (!valid.length) return;
+
+              // Draw connecting line
+              if (valid.length > 1) {
+                for (let i = 0; i < valid.length - 1; i++) {
+                  svg += `<line x1="${valid[i].x}" y1="${valid[i].y}" x2="${valid[i+1].x}" y2="${valid[i+1].y}" stroke="${metric.colour}" stroke-width="2.5" stroke-linecap="round"/>`;
+                }
+              }
+
+              // Draw dots and value labels
+              valid.forEach(pt => {
+                svg += `<circle cx="${pt.x}" cy="${pt.y}" r="5" fill="${metric.colour}" stroke="white" stroke-width="1.5"/>`;
+                svg += `<text x="${pt.x}" y="${pt.y - 10}" text-anchor="middle" font-size="10" font-weight="700" fill="${metric.colour}">${pt.v.toFixed(1)}</text>`;
+              });
+            });
+
+            svg += `</svg>`;
+
+            // Legend
+            const legend = METRICS.map(m =>
+              `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">
+                <span style="width:16px;height:3px;border-radius:99px;background:${m.colour};display:inline-block;flex-shrink:0;"></span>${m.label}
+              </span>`
+            ).join('');
+
+            return svg + `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">${legend}</div>`;
+          })()}
+        </div>`}
+
+        ${/* TRAINING: side-by-side across reviews */trainSessions.length ? `
         <div class="idp-section">
           <div class="idp-section-title">Training performance</div>
-          ${idpBar('Attitude', trainAttAvg)}
-          ${idpBar('Communication', trainCommAvg)}
-          ${idpBar('Performance', trainPerfAvg)}
-          ${idpBar('Communication', trainCommAvg)}
+          ${[
+            { label: 'Attitude',      val: trainAttAvg },
+            { label: 'Communication', val: trainCommAvg },
+            { label: 'Performance',   val: trainPerfAvg }
+          ].map(item => `
+            <div class="idp-bar-row">
+              <div class="idp-bar-labels"><span>${item.label}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
+              ${item.val ? `<div class="idp-bar-track"><div class="idp-bar-fill" style="width:${Math.round((parseFloat(item.val)/5)*100)}%;background:${idpBarColour(item.val)};"></div></div>` : ''}
+            </div>
+          `).join('')}
         </div>` : ''}
 
-        ${matchSessions.length ? `
+        ${/* MATCH: side-by-side across reviews */matchSessions.length ? `
         <div class="idp-section">
           <div class="idp-section-title">Match performance</div>
-          ${idpBar('Mindset', matchMindsetAvg)}
-          ${idpBar('Physical', matchPhysicalAvg)}
-          ${idpBar('Impact', matchImpactAvg)}
+          ${[
+            { label: 'Mindset',  val: matchMindsetAvg },
+            { label: 'Physical', val: matchPhysicalAvg },
+            { label: 'Impact',   val: matchImpactAvg }
+          ].map(item => `
+            <div class="idp-bar-row">
+              <div class="idp-bar-labels"><span>${item.label}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
+              ${item.val ? `<div class="idp-bar-track"><div class="idp-bar-fill" style="width:${Math.round((parseFloat(item.val)/5)*100)}%;background:${idpBarColour(item.val)};"></div></div>` : ''}
+            </div>
+          `).join('')}
         </div>` : ''}
 
-        ${monthlyReports.length ? `
+        ${/* HALF-TERM REVIEWS: one row per category showing all periods side by side */monthlyReports.length ? `
         <div class="idp-section">
-          <div class="idp-section-title">Half-term reviews (${monthlyReports.length} review${monthlyReports.length !== 1 ? 's' : ''})</div>
+          <div class="idp-section-title">Half-term reviews</div>
 
-          ${/* Individual reviews first */monthlyReports.map(r => {
-            const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
-              ? halfTerms[r.month].label
-              : r.month || 'Review';
-            const cats = ['technical','tactical','behaviours','physical'];
-            return `<div style="margin-bottom:1.5rem;padding:14px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);">
-              <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
-                ${htLabel} &bull; Coach: ${r.coach || 'Unknown'}
+          ${/* Period headers */`
+          <div class="idp-review-comparison">
+            <div class="idp-review-attr-col"></div>
+            ${monthlyReports.map(r => {
+              const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
+                ? halfTerms[r.month].label : r.month || 'Review';
+              return `<div class="idp-review-period-col">
+                <div class="idp-review-period-label">${htLabel}</div>
+                <div class="idp-review-coach">Coach: ${r.coach || 'Unknown'}</div>
+              </div>`;
+            }).join('')}
+          </div>`}
+
+          ${/* One row per category */['technical','tactical','behaviours','physical'].map(cat => {
+            const hasAnyData = monthlyReports.some(r => r[cat]?.rating || r[cat]?.comments);
+            if (!hasAnyData) return '';
+            return `<div class="idp-review-cat-section">
+              <div class="idp-review-cat-title">${DNA_LABELS[cat]}</div>
+              <div class="idp-review-comparison">
+                <div class="idp-review-attr-col">
+                  <div class="idp-review-attr-name">Rating</div>
+                </div>
+                ${monthlyReports.map(r => {
+                  const rating = r[cat]?.rating;
+                  const pct = rating ? Math.round((parseFloat(rating)/5)*100) : 0;
+                  return `<div class="idp-review-period-col">
+                    ${rating ? `
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <div class="idp-bar-track" style="flex:1;height:8px;">
+                        <div class="idp-bar-fill" style="width:${pct}%;background:${idpBarColour(rating)};"></div>
+                      </div>
+                      <span style="font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;">${parseFloat(rating).toFixed(1)}</span>
+                    </div>` : '<span style="font-size:12px;color:var(--text3);">N/A</span>'}
+                  </div>`;
+                }).join('')}
               </div>
-              ${cats.map(cat => {
-                const rating = r[cat]?.rating;
-                const comment = r[cat]?.comments;
-                if (!rating && !comment) return '';
-                return `<div style="margin-bottom:12px;">
-                  <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${DNA_LABELS[cat]}</div>
-                  ${rating ? idpBar(DNA_LABELS[cat], rating) : ''}
-                  ${comment ? `<div class="idp-comments-block">${comment}</div>` : ''}
-                </div>`;
-              }).join('')}
-              ${r.nonNegotiables?.rating || r.nonNegotiables?.comments ? `
-              <div style="padding:10px 12px;background:var(--green-light);border-radius:var(--r-sm);border-left:3px solid var(--green);">
-                <div style="font-size:12px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">BRTFC Non-Negotiables</div>
-                ${r.nonNegotiables.rating ? idpBar('Scan. Communicate. React.', r.nonNegotiables.rating) : ''}
-                ${r.nonNegotiables.comments ? `<div class="idp-comments-block" style="margin-top:6px;">${r.nonNegotiables.comments}</div>` : ''}
+              ${monthlyReports.some(r => r[cat]?.comments) ? `
+              <div style="margin-top:8px;">
+                ${monthlyReports.map(r => {
+                  const comment = r[cat]?.comments;
+                  if (!comment) return '';
+                  const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
+                    ? halfTerms[r.month].label : r.month || 'Review';
+                  return `<div class="idp-comments-block" style="margin-bottom:6px;">
+                    <span style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;">${htLabel}</span><br>
+                    ${comment}
+                  </div>`;
+                }).join('')}
               </div>` : ''}
             </div>`;
           }).join('')}
 
-          ${/* Term averages summary if more than one review */monthlyReports.length > 1 ? `
-          <div style="margin-top:4px;">
-            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:10px;">Term averages across all reviews</div>
-            ${['technical','tactical','behaviours','physical'].map(cat =>
-              moAvgs[cat] ? idpBar(DNA_LABELS[cat], moAvgs[cat]) : ''
-            ).join('')}
+          ${/* Non-Negotiables row */monthlyReports.some(r => r.nonNegotiables?.rating || r.nonNegotiables?.comments) ? `
+          <div class="idp-review-cat-section" style="background:var(--green-light);border-radius:var(--r-sm);padding:12px;margin-top:8px;">
+            <div class="idp-review-cat-title" style="color:var(--green-dark);">BRTFC Non-Negotiables</div>
+            <div style="font-size:12px;color:var(--green-dark);margin-bottom:8px;opacity:0.7;">Scan early. Communicate early. React immediately.</div>
+            <div class="idp-review-comparison">
+              <div class="idp-review-attr-col"><div class="idp-review-attr-name">Rating</div></div>
+              ${monthlyReports.map(r => {
+                const rating = r.nonNegotiables?.rating;
+                const pct = rating ? Math.round((parseFloat(rating)/5)*100) : 0;
+                return `<div class="idp-review-period-col">
+                  ${rating ? `
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="idp-bar-track" style="flex:1;height:8px;">
+                      <div class="idp-bar-fill" style="width:${pct}%;background:${idpBarColour(rating)};"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;">${parseFloat(rating).toFixed(1)}</span>
+                  </div>` : '<span style="font-size:12px;color:var(--text3);">N/A</span>'}
+                </div>`;
+              }).join('')}
+            </div>
+            ${monthlyReports.some(r => r.nonNegotiables?.comments) ? `
+            <div style="margin-top:8px;">
+              ${monthlyReports.map(r => {
+                if (!r.nonNegotiables?.comments) return '';
+                const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
+                  ? halfTerms[r.month].label : r.month || 'Review';
+                return `<div class="idp-comments-block" style="margin-bottom:6px;">
+                  <span style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;">${htLabel}</span><br>
+                  ${r.nonNegotiables.comments}
+                </div>`;
+              }).join('')}
+            </div>` : ''}
           </div>` : ''}
 
         </div>` : ''}
