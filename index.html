@@ -44,6 +44,8 @@
     <button class="nav-btn hidden" data-view="idp" onclick="switchView('idp',this)">IDP</button>
     <button class="nav-btn hidden" data-view="admin" onclick="switchView('admin',this)">Admin</button>
     <button class="nav-btn hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
+    <button class="nav-btn hidden" data-view="insights" onclick="switchView('insights',this)">Insights</button>
+    <button class="nav-btn hidden" data-view="potential" onclick="switchView('potential',this)">Potential</button>
   </nav>
 
   <main class="app-main">
@@ -500,6 +502,99 @@
       </div>
 
     </div><!-- /admin -->
+
+
+    <!-- SQUAD INSIGHTS -->
+    <div id="view-insights" class="view hidden">
+      <div class="view-header">
+        <div class="page-title">Squad Insights</div>
+      </div>
+
+      <div class="insights-controls">
+        <select id="ins-term" onchange="renderInsights()">
+          <option value="1">Term 1 (Aug-Oct)</option>
+          <option value="2">Term 2 (Nov-Jan)</option>
+          <option value="3">Term 3 (Feb-Apr)</option>
+        </select>
+        <select id="ins-group" onchange="renderInsights()">
+          <option value="all">All age groups</option>
+          <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+        </select>
+        <button class="btn-primary" onclick="renderInsights()" style="white-space:nowrap;">Refresh</button>
+      </div>
+
+      <!-- HEATMAP -->
+      <div class="insights-card">
+        <div class="insights-card-title">Squad attribute heatmap</div>
+        <div class="insights-card-sub">Every player across every category. Orange = needs work. Green = developing. Gold = exceeding.</div>
+        <div id="ins-heatmap" class="ins-heatmap-wrap"></div>
+      </div>
+
+      <!-- DNA TREND -->
+      <div class="insights-card">
+        <div class="insights-card-title">DNA compliance trend</div>
+        <div class="insights-card-sub">Each DNA principle across every match this term. Are you improving over time?</div>
+        <div id="ins-dna-trend"></div>
+      </div>
+
+      <!-- BLOCK IMPACT -->
+      <div class="insights-card">
+        <div class="insights-card-title">Curriculum block impact</div>
+        <div class="insights-card-sub">Average player ratings by block. Shows which blocks are producing the best performances.</div>
+        <div id="ins-block-impact"></div>
+      </div>
+
+      <!-- COHORT COMPARISON -->
+      <div class="insights-card">
+        <div class="insights-card-title">Phase comparison</div>
+        <div class="insights-card-sub">Phase 1 (U14/U15) vs Phase 2 (U16/U18) across every metric. Are older players more developed?</div>
+        <div id="ins-cohort"></div>
+      </div>
+
+    </div>
+
+
+    <!-- POTENTIAL ASSESSMENT -->
+    <div id="view-potential" class="view hidden">
+      <div class="view-header">
+        <div class="page-title">Potential Assessment</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px;">Phase Lead and Admin only. Players have no visibility of this data.</div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-section-title">Assessment controls</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Season</label>
+            <select id="pot-season">
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="pot-group" onchange="loadPotentialPlayers()">
+              <option value="">Select group...</option>
+              <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+            </select>
+          </div>
+        </div>
+        <div id="pot-status" class="status-msg"></div>
+      </div>
+
+      <div id="pot-players-list"></div>
+
+      <div class="form-card" id="pot-history-card" style="display:none;">
+        <div class="form-section-title">Assessment history</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Historical assessments across all seasons. Use this to review accuracy over time.</div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Filter by age group</label>
+          <select id="pot-history-group" onchange="renderPotentialHistory()">
+            <option value="all">All groups</option>
+            <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+          </select>
+        </div>
+        <div id="pot-history-table"></div>
+      </div>
+    </div>
 
   </main>
 </div><!-- /app -->
