@@ -4,6 +4,7 @@ import { db, ref, set, get, push, update, remove, onValue, child }
 // ── STATE ────────────────────────────────────────────────────────
 let currentCoach = null;
 let allPlayers   = {};
+let allPotential = {};
 let allCoaches   = {};
 let allTraining  = {};
 let allMatches   = {};
@@ -43,7 +44,7 @@ function coachPhaseGroups() {
 
 function canAccessNav(view) {
   if (isAdmin())     return true;
-  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard','insights'].includes(view);
+  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard','insights','potential'].includes(view);
   if (isManager())   return ['players','match','idp','insights'].includes(view);
   return false;
 }
@@ -166,6 +167,7 @@ window.switchView = function(v, btn) {
   if (v === 'admin')     renderAdminPlayers();
   if (v === 'dashboard') renderDashboard();
   if (v === 'insights')  renderInsights();
+  if (v === 'potential') initPotentialView();
 };
 
 // ── PLAYERS VIEW ──────────────────────────────────────────────────
@@ -905,9 +907,10 @@ window.renderIDP = function() {
           ${(function() {
             const TERM_LABELS = { '1': 'Term 1', '2': 'Term 2', '3': 'Term 3' };
             const METRICS = [
-              { label: 'Attitude',      colour: '#2A8C3F', getData: (tr,mt) => [...tr.map(t => t.entries[pid]?.attitude), ...mt.map(m => m.entries[pid]?.mindset)] },
+              { label: 'Attitude',      colour: '#2A8C3F', getData: (tr,mt) => tr.map(t => t.entries[pid]?.attitude) },
               { label: 'Communication', colour: '#185fa5', getData: (tr,mt) => tr.map(t => t.entries[pid]?.communication) },
               { label: 'Performance',   colour: '#B8922A', getData: (tr,mt) => tr.map(t => t.entries[pid]?.performance) },
+              { label: 'Mindset',       colour: '#ef9f27', getData: (tr,mt) => mt.map(m => m.entries[pid]?.mindset) },
               { label: 'Physical',      colour: '#C0272D', getData: (tr,mt) => mt.map(m => m.entries[pid]?.physical) },
               { label: 'Impact',        colour: '#7b2d8b', getData: (tr,mt) => mt.map(m => m.entries[pid]?.impact) }
             ];
@@ -2255,3 +2258,164 @@ function renderCohortComparison(termTraining, termMatches) {
   </div>
   <div style="font-size:12px;color:var(--text3);margin-top:8px;">Gap colour: green = small difference, amber = notable, red = significant gap between phases.</div>`;
 }
+
+// ── POTENTIAL ASSESSMENT ──────────────────────────────────────────
+const POT_LEVELS = {
+  1: { label: 'County 1 / 2',    colour: '#9b9a96', bg: '#f0efea' },
+  2: { label: 'County Premier',  colour: '#185fa5', bg: '#e6f1fb' },
+  3: { label: 'Step 4',          colour: '#2A8C3F', bg: '#e8f5ec' },
+  4: { label: 'Step 3 or above', colour: '#B8922A', bg: '#faf0dc' }
+};
+
+function initPotentialView() {
+  // Populate season selector - current year back to 2024
+  const sel = document.getElementById('pot-season');
+  if (sel && !sel.options.length) {
+    const y = new Date().getFullYear();
+    for (let i = y; i >= 2024; i--) {
+      sel.innerHTML += `<option value="${i}/${i+1}">${i}/${i+1}</option>`;
+    }
+  }
+  loadPotentialPlayers();
+  renderPotentialHistory();
+  document.getElementById('pot-history-card').style.display = 'block';
+}
+
+window.loadPotentialPlayers = function() {
+  const group  = document.getElementById('pot-group')?.value;
+  const season = document.getElementById('pot-season')?.value;
+  const list   = document.getElementById('pot-players-list');
+  if (!group) { list.innerHTML = ''; return; }
+
+  const players = Object.entries(allPlayers)
+    .filter(([id,p]) => p.group === group)
+    .sort((a,b) => a[1].lname.localeCompare(b[1].lname));
+
+  if (!players.length) {
+    list.innerHTML = '<div class="empty-state">No players in this group.</div>';
+    return;
+  }
+
+  list.innerHTML = players.map(([pid, p]) => {
+    const existing = allPotential[`${pid}_${season?.replace('/','_')}`];
+    const currentLevel = existing?.level || 0;
+    const age = p.dob ? calcAge(p.dob) : 'N/A';
+
+    return `<div class="pot-player-card" id="pot_card_${pid}">
+      <div class="pot-player-header">
+        <div class="player-avatar" style="width:40px;height:40px;font-size:13px;">${initials(p)}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:600;">${p.fname} ${p.lname}</div>
+          <div style="font-size:12px;color:var(--text2);">${p.group} &bull; ${p.pos} &bull; Age ${age}</div>
+        </div>
+        ${currentLevel ? `<div class="pot-current-badge" style="background:${POT_LEVELS[currentLevel].bg};color:${POT_LEVELS[currentLevel].colour};">${POT_LEVELS[currentLevel].label}</div>` : '<div style="font-size:12px;color:var(--text3);">Not assessed</div>'}
+      </div>
+      <div class="pot-level-selector">
+        ${[1,2,3,4].map(level => `
+          <button class="pot-level-btn ${currentLevel === level ? 'active' : ''}"
+            style="${currentLevel === level ? `background:${POT_LEVELS[level].bg};border-color:${POT_LEVELS[level].colour};color:${POT_LEVELS[level].colour};` : ''}"
+            onclick="setPotentialLevel('${pid}', ${level}, '${season}')">
+            <span class="pot-level-num">${level}</span>
+            <span class="pot-level-label">${POT_LEVELS[level].label}</span>
+          </button>
+        `).join('')}
+      </div>
+      ${existing?.notes !== undefined ? `<div style="margin-top:10px;">
+        <textarea class="pot-notes" id="pot_notes_${pid}" placeholder="Optional notes (coach only, never shown to player)..." rows="2">${existing.notes || ''}</textarea>
+        <button class="btn-secondary" style="font-size:12px;padding:6px 14px;margin-top:6px;" onclick="savePotentialNotes('${pid}','${season}')">Save notes</button>
+      </div>` : `<div style="margin-top:8px;">
+        <button class="btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="showPotentialNotes('${pid}')">+ Add notes</button>
+      </div>`}
+    </div>`;
+  }).join('');
+};
+
+window.setPotentialLevel = async function(pid, level, season) {
+  if (!season) { toast('Select a season first.'); return; }
+  const key = `${pid}_${season.replace('/','_')}`;
+  const existing = allPotential[key] || {};
+  await set(ref(db, `potential/${key}`), {
+    pid, season, level,
+    notes:    existing.notes || '',
+    assessedBy: currentCoach.name,
+    assessedAt: new Date().toISOString(),
+    group: allPlayers[pid]?.group || ''
+  });
+  toast(`${allPlayers[pid]?.fname} assessed as ${POT_LEVELS[level].label}`);
+  loadPotentialPlayers();
+  renderPotentialHistory();
+};
+
+window.showPotentialNotes = function(pid) {
+  const card = document.getElementById(`pot_card_${pid}`);
+  if (!card) return;
+  const btn = card.querySelector('.btn-secondary');
+  if (btn) btn.parentElement.innerHTML = `
+    <textarea class="pot-notes" id="pot_notes_${pid}" placeholder="Optional notes (coach only, never shown to player)..." rows="2"></textarea>
+    <button class="btn-secondary" style="font-size:12px;padding:6px 14px;margin-top:6px;" onclick="savePotentialNotes('${pid}', document.getElementById('pot-season').value)">Save notes</button>
+  `;
+};
+
+window.savePotentialNotes = async function(pid, season) {
+  if (!season) return;
+  const key   = `${pid}_${season.replace('/','_')}`;
+  const notes = document.getElementById(`pot_notes_${pid}`)?.value.trim() || '';
+  const existing = allPotential[key];
+  if (!existing) { toast('Set a potential level first.'); return; }
+  await update(ref(db, `potential/${key}`), { notes });
+  toast('Notes saved.');
+};
+
+window.renderPotentialHistory = function() {
+  const grpFilter = document.getElementById('pot-history-group')?.value || 'all';
+  const el = document.getElementById('pot-history-table');
+  if (!el) return;
+
+  const entries = Object.values(allPotential)
+    .filter(e => grpFilter === 'all' || e.group === grpFilter)
+    .sort((a,b) => {
+      const pa = allPlayers[a.pid]?.lname || '';
+      const pb = allPlayers[b.pid]?.lname || '';
+      return pa.localeCompare(pb) || b.season?.localeCompare(a.season||'');
+    });
+
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);">No assessments recorded yet.</div>';
+    return;
+  }
+
+  // Group by player
+  const byPlayer = {};
+  entries.forEach(e => {
+    if (!byPlayer[e.pid]) byPlayer[e.pid] = [];
+    byPlayer[e.pid].push(e);
+  });
+
+  el.innerHTML = `<div style="overflow-x:auto;">
+    <table class="player-table">
+      <thead><tr>
+        <th>Player</th>
+        <th>Group</th>
+        <th>Season</th>
+        <th>Assessment</th>
+        <th>Assessed by</th>
+        <th>Notes</th>
+      </tr></thead>
+      <tbody>
+        ${Object.entries(byPlayer).flatMap(([pid, seasons]) => {
+          const p = allPlayers[pid];
+          return seasons.map((e, i) => `<tr>
+            ${i === 0 ? `<td rowspan="${seasons.length}" style="font-weight:600;vertical-align:top;padding-top:10px;">${p ? p.fname+' '+p.lname : 'Unknown'}</td>
+            <td rowspan="${seasons.length}" style="vertical-align:top;padding-top:10px;"><span class="badge badge-group">${p?.group||''}</span></td>` : ''}
+            <td style="font-weight:500;">${e.season||'N/A'}</td>
+            <td>
+              ${e.level ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${POT_LEVELS[e.level].bg};color:${POT_LEVELS[e.level].colour};">${POT_LEVELS[e.level].label}</span>` : '<span style="color:var(--text3);font-size:12px;">Not set</span>'}
+            </td>
+            <td style="font-size:12px;color:var(--text2);">${e.assessedBy||'Unknown'}</td>
+            <td style="font-size:12px;color:var(--text2);max-width:180px;">${e.notes||''}</td>
+          </tr>`);
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+};
