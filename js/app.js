@@ -43,8 +43,8 @@ function coachPhaseGroups() {
 
 function canAccessNav(view) {
   if (isAdmin())     return true;
-  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard'].includes(view);
-  if (isManager())   return ['players','match','idp'].includes(view);
+  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard','insights'].includes(view);
+  if (isManager())   return ['players','match','idp','insights'].includes(view);
   return false;
 }
 
@@ -165,6 +165,7 @@ window.switchView = function(v, btn) {
   if (v === 'monthly')   initMonthlyView();
   if (v === 'admin')     renderAdminPlayers();
   if (v === 'dashboard') renderDashboard();
+  if (v === 'insights')  renderInsights();
 };
 
 // ── PLAYERS VIEW ──────────────────────────────────────────────────
@@ -787,9 +788,18 @@ window.renderIDP = function() {
   const matchSessions = Object.values(allMatches).filter(m =>
     m.entries?.[pid] && inTermRange(m.date, termRange)
   );
-  const monthlyReports = Object.values(allMonthly).filter(mo =>
-    mo.pid === pid && inTermRange(mo.month + '-01', termRange)
-  );
+  const monthlyReports = Object.values(allMonthly).filter(mo => {
+    if (mo.pid !== pid) return false;
+    // Handle half-term key format (ht_TIMESTAMP)
+    if (mo.month && mo.month.startsWith('ht_')) {
+      const ht = halfTerms[mo.month];
+      if (!ht?.start) return true; // include if no date info
+      return inTermRange(ht.start, termRange);
+    }
+    // Handle standard YYYY-MM format
+    if (mo.month) return inTermRange(mo.month + '-01', termRange);
+    return true;
+  });
   const goals = Object.entries(allGoals).filter(([id, g]) => g.pid === pid);
 
   // Averages
@@ -803,10 +813,18 @@ window.renderIDP = function() {
   const moAvgs = {};
   ['technical','tactical','behaviours','physical','nonNegotiables'].forEach(cat => {
     moAvgs[cat] = calcAvg(monthlyReports.map(r => r[cat]?.rating || 0).filter(v => v > 0));
+    // Build comments with half-term label if available
     moAvgs[`${cat}_comments`] = monthlyReports
-      .map(r => r[cat]?.comments)
+      .map(r => {
+        const comment = r[cat]?.comments;
+        if (!comment) return null;
+        const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
+          ? halfTerms[r.month].label + ': '
+          : '';
+        return htLabel + comment;
+      })
       .filter(Boolean)
-      .join(' ');
+      .join(' | ');
   });
   const DNA_LABELS = {
     technical:       'On the Ball',
@@ -894,21 +912,44 @@ window.renderIDP = function() {
 
         ${monthlyReports.length ? `
         <div class="idp-section">
-          <div class="idp-section-title">Monthly assessment</div>
-          ${['technical','tactical','behaviours','physical'].map(cat => `
-            <div style="margin-bottom:1.25rem;">
-              <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">${DNA_LABELS[cat]}</div>
-              ${idpBar(DNA_LABELS[cat], moAvgs[cat])}
-              ${moAvgs[cat+'_comments'] ? `<div class="idp-comments-block">${moAvgs[cat+'_comments']}</div>` : ''}
-            </div>
-          `).join('')}
-          ${moAvgs.nonNegotiables ? `
-          <div style="margin-bottom:1.25rem;padding:12px 14px;background:var(--green-light);border-radius:var(--radius);border-left:4px solid var(--green);">
-            <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">BRTFC Non-Negotiables</div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Scan early. Communicate early. React immediately.</div>
-            ${idpBar('Consistency', moAvgs.nonNegotiables)}
-            ${moAvgs.nonNegotiables_comments ? `<div class="idp-comments-block" style="margin-top:6px;">${moAvgs.nonNegotiables_comments}</div>` : ''}
+          <div class="idp-section-title">Half-term reviews (${monthlyReports.length} review${monthlyReports.length !== 1 ? 's' : ''})</div>
+
+          ${/* Individual reviews first */monthlyReports.map(r => {
+            const htLabel = r.month?.startsWith('ht_') && halfTerms[r.month]?.label
+              ? halfTerms[r.month].label
+              : r.month || 'Review';
+            const cats = ['technical','tactical','behaviours','physical'];
+            return `<div style="margin-bottom:1.5rem;padding:14px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+                ${htLabel} &bull; Coach: ${r.coach || 'Unknown'}
+              </div>
+              ${cats.map(cat => {
+                const rating = r[cat]?.rating;
+                const comment = r[cat]?.comments;
+                if (!rating && !comment) return '';
+                return `<div style="margin-bottom:12px;">
+                  <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">${DNA_LABELS[cat]}</div>
+                  ${rating ? idpBar(DNA_LABELS[cat], rating) : ''}
+                  ${comment ? `<div class="idp-comments-block">${comment}</div>` : ''}
+                </div>`;
+              }).join('')}
+              ${r.nonNegotiables?.rating || r.nonNegotiables?.comments ? `
+              <div style="padding:10px 12px;background:var(--green-light);border-radius:var(--r-sm);border-left:3px solid var(--green);">
+                <div style="font-size:12px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">BRTFC Non-Negotiables</div>
+                ${r.nonNegotiables.rating ? idpBar('Scan. Communicate. React.', r.nonNegotiables.rating) : ''}
+                ${r.nonNegotiables.comments ? `<div class="idp-comments-block" style="margin-top:6px;">${r.nonNegotiables.comments}</div>` : ''}
+              </div>` : ''}
+            </div>`;
+          }).join('')}
+
+          ${/* Term averages summary if more than one review */monthlyReports.length > 1 ? `
+          <div style="margin-top:4px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:10px;">Term averages across all reviews</div>
+            ${['technical','tactical','behaviours','physical'].map(cat =>
+              moAvgs[cat] ? idpBar(DNA_LABELS[cat], moAvgs[cat]) : ''
+            ).join('')}
           </div>` : ''}
+
         </div>` : ''}
 
         <div class="idp-section">
@@ -1760,3 +1801,291 @@ window.deleteDataEntry = async function(type, key, label) {
     console.error(err);
   }
 };
+
+// ── SQUAD INSIGHTS ────────────────────────────────────────────────
+window.renderInsights = function() {
+  const termNo  = parseInt(document.getElementById('ins-term')?.value || 1);
+  const grpFilter = document.getElementById('ins-group')?.value || 'all';
+  const termRange = getTermRange(termNo);
+
+  const GROUPS = ['U14','U15','U16','U18'];
+  const filteredGroups = grpFilter === 'all' ? GROUPS : [grpFilter];
+
+  const termTraining = Object.values(allTraining).filter(t => inTermRange(t.date, termRange));
+  const termMatches  = Object.values(allMatches).filter(m => inTermRange(m.date, termRange));
+
+  const filteredPlayers = Object.entries(allPlayers)
+    .filter(([id,p]) => filteredGroups.includes(p.group))
+    .sort((a,b) => a[1].group.localeCompare(b[1].group) || a[1].lname.localeCompare(b[1].lname));
+
+  renderHeatmap(filteredPlayers, termTraining, termMatches);
+  renderDNATrend(termMatches, filteredGroups);
+  renderBlockImpact(termTraining, filteredPlayers);
+  renderCohortComparison(termTraining, termMatches);
+};
+
+// ── 1. ATTRIBUTE HEATMAP ──────────────────────────────────────────
+function renderHeatmap(players, termTraining, termMatches) {
+  const el = document.getElementById('ins-heatmap');
+  if (!players.length) { el.innerHTML = '<div class="empty-state">No players found.</div>'; return; }
+
+  const TRAIN_ATTRS = [
+    { key: 'attitude',      label: 'Attitude' },
+    { key: 'communication', label: 'Comm.' },
+    { key: 'performance',   label: 'Perf.' }
+  ];
+  const MATCH_ATTRS = [
+    { key: 'mindset',  label: 'Mindset' },
+    { key: 'physical', label: 'Physical' },
+    { key: 'impact',   label: 'Impact' }
+  ];
+
+  const heatColour = v => {
+    if (!v || isNaN(v)) return 'var(--bg3)';
+    const n = parseFloat(v);
+    if (n > 3.5)  return 'linear-gradient(135deg,#8a6a00,#B8922A)';
+    if (n >= 2.5) return 'linear-gradient(135deg,#1a5c28,#2A8C3F)';
+    return 'linear-gradient(135deg,#e07000,#c05000)';
+  };
+
+  const heatText = v => {
+    if (!v || isNaN(v)) return '';
+    return parseFloat(v).toFixed(1);
+  };
+
+  const headers = ['Player', 'Grp', ...TRAIN_ATTRS.map(a => a.label), ...MATCH_ATTRS.map(a => a.label)];
+
+  let html = `<div style="overflow-x:auto;">
+    <table class="heatmap-table">
+      <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>`;
+
+  players.forEach(([pid, p]) => {
+    const pt = termTraining.filter(t => t.entries?.[pid] && (!t.entries[pid].attendance || t.entries[pid].attendance === 'present'));
+    const pm = termMatches.filter(m => m.entries?.[pid] && (!m.entries[pid].attendance || m.entries[pid].attendance === 'present'));
+
+    const tVals = TRAIN_ATTRS.map(a => calcAvg(pt.map(t => t.entries[pid][a.key])));
+    const mVals = MATCH_ATTRS.map(a => calcAvg(pm.map(m => m.entries[pid][a.key])));
+    const allVals = [...tVals, ...mVals].map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+    const rowAvg = allVals.length ? (allVals.reduce((a,b)=>a+b,0)/allVals.length).toFixed(1) : null;
+
+    html += `<tr>
+      <td class="heatmap-name">${p.fname[0]}. ${p.lname}</td>
+      <td><span class="badge badge-group" style="font-size:10px;">${p.group}</span></td>
+      ${[...tVals, ...mVals].map(v => `
+        <td>
+          <div class="heat-cell" style="background:${heatColour(v)};">
+            ${heatText(v)}
+          </div>
+        </td>
+      `).join('')}
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  // Add legend
+  html += `<div class="heatmap-legend">
+    <span><span class="heat-legend-dot" style="background:linear-gradient(135deg,#e07000,#c05000);"></span>Below 2.5</span>
+    <span><span class="heat-legend-dot" style="background:linear-gradient(135deg,#1a5c28,#2A8C3F);"></span>2.5 to 3.5</span>
+    <span><span class="heat-legend-dot" style="background:linear-gradient(135deg,#8a6a00,#B8922A);"></span>Above 3.5</span>
+    <span><span class="heat-legend-dot" style="background:var(--bg3);"></span>No data</span>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+// ── 2. DNA TREND LINE ─────────────────────────────────────────────
+function renderDNATrend(termMatches, filteredGroups) {
+  const el = document.getElementById('ins-dna-trend');
+
+  const matches = termMatches
+    .filter(m => filteredGroups.includes(m.group))
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  if (!matches.length) {
+    el.innerHTML = '<div class="empty-state">No match data for this term yet.</div>';
+    return;
+  }
+
+  const DNA_KEYS = [
+    { key: 'forward',    label: 'Forward first',   colour: '#2A8C3F' },
+    { key: 'ballspeed',  label: 'High ball speed',  colour: '#B8922A' },
+    { key: 'finalthird', label: 'Final third',      colour: '#185fa5' },
+    { key: 'press',      label: 'Pressing',         colour: '#C0272D' },
+    { key: 'recovery',   label: 'Recovery',         colour: '#7b2d8b' }
+  ];
+
+  // Build trend chart using SVG
+  const W = 600, H = 200, PAD = 40;
+  const xStep = matches.length > 1 ? (W - PAD * 2) / (matches.length - 1) : W - PAD * 2;
+
+  const valY = (v) => PAD + (H - PAD * 2) * (1 - (v - 1) / 4);
+
+  let svg = `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px;" xmlns="http://www.w3.org/2000/svg">`;
+
+  // Grid lines
+  for (let i = 1; i <= 5; i++) {
+    const y = valY(i);
+    svg += `<line x1="${PAD}" y1="${y}" x2="${W - PAD}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    svg += `<text x="${PAD - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text3)">${i}</text>`;
+  }
+
+  // X axis labels
+  matches.forEach((m, i) => {
+    const x = PAD + i * xStep;
+    const label = m.date ? m.date.slice(5) : '';
+    svg += `<text x="${x}" y="${H + 14}" text-anchor="middle" font-size="9" fill="var(--text3)">${label}</text>`;
+  });
+
+  // Lines per DNA key
+  DNA_KEYS.forEach(dk => {
+    const points = matches.map((m, i) => {
+      const v = parseFloat(m.dna?.[dk.key]);
+      if (isNaN(v)) return null;
+      return { x: PAD + i * xStep, y: valY(v), v };
+    });
+
+    // Draw line
+    const validPoints = points.filter(Boolean);
+    if (validPoints.length > 1) {
+      const d = validPoints.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
+      svg += `<path d="${d}" fill="none" stroke="${dk.colour}" stroke-width="2" stroke-linejoin="round"/>`;
+    }
+
+    // Draw dots
+    validPoints.forEach(pt => {
+      svg += `<circle cx="${pt.x}" cy="${pt.y}" r="4" fill="${dk.colour}"/>`;
+      svg += `<title>${dk.label}: ${pt.v}</title>`;
+    });
+  });
+
+  svg += `</svg>`;
+
+  // Legend
+  const legend = DNA_KEYS.map(dk =>
+    `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">
+      <span style="width:16px;height:3px;border-radius:99px;background:${dk.colour};display:inline-block;flex-shrink:0;"></span>
+      ${dk.label}
+    </span>`
+  ).join('');
+
+  el.innerHTML = `${svg}<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">${legend}</div>`;
+}
+
+// ── 3. BLOCK IMPACT ───────────────────────────────────────────────
+function renderBlockImpact(termTraining, filteredPlayers) {
+  const el = document.getElementById('ins-block-impact');
+
+  const BLOCK_LABELS = {
+    '1':'Build and Progress','2':'Create and Exploit','3':'Final Third',
+    '4':'Press and Regain','5':'Defend and Transition','6':'Game Control'
+  };
+
+  const blockData = {};
+  Object.keys(BLOCK_LABELS).forEach(b => { blockData[b] = []; });
+
+  const pids = new Set(filteredPlayers.map(([id]) => id));
+
+  termTraining.forEach(t => {
+    if (!t.block || !BLOCK_LABELS[t.block]) return;
+    Object.entries(t.entries || {}).forEach(([pid, e]) => {
+      if (!pids.has(pid)) return;
+      if (e.attendance && e.attendance !== 'present') return;
+      const vals = [e.attitude, e.communication, e.performance]
+        .map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+      if (vals.length) blockData[t.block].push(vals.reduce((a,b)=>a+b,0)/vals.length);
+    });
+  });
+
+  const hasAny = Object.values(blockData).some(v => v.length > 0);
+  if (!hasAny) {
+    el.innerHTML = '<div class="empty-state">No training data with blocks assigned yet.</div>';
+    return;
+  }
+
+  el.innerHTML = `<div class="block-impact-grid">
+    ${Object.entries(BLOCK_LABELS).map(([b, label]) => {
+      const vals = blockData[b];
+      const avg = vals.length ? (vals.reduce((a,b2)=>a+b2,0)/vals.length) : null;
+      const pct = avg ? Math.round((avg/5)*100) : 0;
+      const colour = avg > 3.5 ? 'linear-gradient(90deg,#8a6a00,#B8922A)' : avg >= 2.5 ? 'linear-gradient(90deg,#1a5c28,#2A8C3F)' : avg ? 'linear-gradient(90deg,#e07000,#c05000)' : 'var(--bg3)';
+      return `<div class="block-impact-item">
+        <div class="block-impact-num">Block ${b}</div>
+        <div class="block-impact-label">${label}</div>
+        <div class="block-impact-bar-track">
+          <div class="block-impact-bar-fill" style="width:${pct}%;background:${colour};"></div>
+        </div>
+        <div class="block-impact-avg">${avg ? avg.toFixed(1) + '/5' : 'No data'}</div>
+        <div class="block-impact-sessions">${vals.length} rating${vals.length!==1?'s':''}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── 4. COHORT COMPARISON ──────────────────────────────────────────
+function renderCohortComparison(termTraining, termMatches) {
+  const el = document.getElementById('ins-cohort');
+
+  const phases = [
+    { label: 'Phase 1', groups: ['U14','U15'], colour: '#185fa5' },
+    { label: 'Phase 2', groups: ['U16','U18'], colour: '#2A8C3F' }
+  ];
+
+  const METRICS = [
+    { label: 'Attitude',         type: 'train', key: 'attitude' },
+    { label: 'Communication',    type: 'train', key: 'communication' },
+    { label: 'Performance',      type: 'train', key: 'performance' },
+    { label: 'Mindset',          type: 'match', key: 'mindset' },
+    { label: 'Physical',         type: 'match', key: 'physical' },
+    { label: 'Impact',           type: 'match', key: 'impact' }
+  ];
+
+  const getPhaseAvg = (phase, metric) => {
+    const phasePids = new Set(
+      Object.entries(allPlayers)
+        .filter(([id,p]) => phase.groups.includes(p.group))
+        .map(([id]) => id)
+    );
+    const sessions = metric.type === 'train' ? termTraining : termMatches;
+    const vals = sessions.flatMap(s =>
+      Object.entries(s.entries || {})
+        .filter(([pid, e]) => phasePids.has(pid) && (!e.attendance || e.attendance === 'present'))
+        .map(([pid, e]) => parseFloat(e[metric.key]))
+        .filter(v => !isNaN(v) && v > 0)
+    );
+    return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  };
+
+  el.innerHTML = `<div style="overflow-x:auto;">
+    <table class="cohort-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          ${phases.map(ph => `<th style="color:${ph.colour};">${ph.label}</th>`).join('')}
+          <th>Gap</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${METRICS.map(m => {
+          const avgs = phases.map(ph => getPhaseAvg(ph, m));
+          const gap = avgs[0] && avgs[1] ? Math.abs(avgs[0] - avgs[1]).toFixed(1) : null;
+          const gapCol = gap > 0.5 ? 'var(--red)' : gap > 0.2 ? 'var(--amber)' : 'var(--green)';
+          return `<tr>
+            <td style="font-weight:600;font-size:13px;">${m.label}</td>
+            ${avgs.map((v,i) => `<td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="flex:1;height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;">
+                  <div style="height:100%;width:${v ? Math.round((v/5)*100) : 0}%;background:${phases[i].colour};border-radius:99px;"></div>
+                </div>
+                <span style="font-size:12px;font-weight:600;width:28px;">${v ? v.toFixed(1) : '-'}</span>
+              </div>
+            </td>`).join('')}
+            <td style="font-size:12px;font-weight:600;color:${gapCol};">${gap ? gap : '-'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div style="font-size:12px;color:var(--text3);margin-top:8px;">Gap colour: green = small difference, amber = notable, red = significant gap between phases.</div>`;
+}
