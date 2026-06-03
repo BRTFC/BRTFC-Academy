@@ -104,7 +104,7 @@ window.doLogin = function() {
   document.getElementById('header-coach-name').textContent = currentCoach.name;
 
   // Show only permitted nav items based on role
-  const navViews = ['players','training','match','monthly','idp','admin','dashboard'];
+  const navViews = ['players','training','match','monthly','idp','admin','dashboard','insights','potential'];
   navViews.forEach(v => {
     const btn = document.querySelector(`[data-view="${v}"]`);
     if (!btn) return;
