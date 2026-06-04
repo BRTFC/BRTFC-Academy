@@ -130,6 +130,10 @@ select:focus, input:focus { outline: none; border-color: var(--green); }
 .colour-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text2); margin-bottom: 1.5rem; background: var(--surface); border-radius: var(--r-md); padding: 10px 14px; border: 1px solid var(--border); }
 .legend-dot { width: 14px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
+.sponsor-block { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.sponsor-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); white-space: nowrap; }
+.sponsor-logo { height: 28px; max-width: 120px; object-fit: contain; opacity: 0.8; }
+
 @media print {
   .controls, .page-header, .bulk-section, .idp-actions, .colour-legend { display: none !important; }
   .idp-preview { margin: 0; padding: 0; max-width: 100%; }
@@ -226,6 +230,16 @@ select:focus, input:focus { outline: none; border-color: var(--green); }
     <span><span class="legend-dot fill-orange"></span>Below 2.5: Focus needed</span>
     <span><span class="legend-dot fill-green"></span>2.5 to 3.5: Developing well</span>
     <span><span class="legend-dot fill-gold"></span>Above 3.5: Exceeding standard</span>
+  </div>
+</div>
+
+<div class="controls" style="max-width:860px;margin:0 auto 1rem;padding:0 1rem;">
+  <div style="background:var(--surface);border-radius:var(--r-md);border:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:12px;font-weight:600;color:var(--text2);">Sponsor placement:</span>
+    <div class="sponsor-block" style="margin:0;padding:0;border:none;flex:1;">
+      <span class="sponsor-label">Powered by</span>
+      <img src="images/sponsor.png" alt="Sponsor" class="sponsor-logo" onerror="this.outerHTML='<span style=\'font-size:11px;color:var(--text3);font-style:italic;\'>Upload images/sponsor.png to show logo</span>'">
+    </div>
   </div>
 </div>
 
@@ -594,7 +608,12 @@ function renderIDPHTML(d) {
 
     <div class="idp-footer">
       <span>Bognor Regis Town FC Academy &bull; ${p.fname} ${p.lname} &bull; ${termLabel} ${year}</span>
-      <span>Generated ${generated} &bull; Confidential</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span>Generated ${generated}</span>
+        <span style="color:#ccc;">|</span>
+        <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:#aaa;">Powered by</span>
+        <img src="images/sponsor.png" alt="Sponsor" style="height:18px;max-width:70px;object-fit:contain;opacity:0.7;" onerror="this.style.display='none'">
+      </div>
     </div>
   </div>`;
 }
