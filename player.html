@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BRTFC Academy — Player Portal</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --green:      #2A8C3F;
+  --green-dark: #1a5c28;
+  --green-deep: #0a2810;
+  --green-mid:  #3aab52;
+  --green-light:#e8f5ec;
+  --gold:       #B8922A;
+  --gold-light: #faf0dc;
+  --red:        #C0272D;
+  --red-light:  #fdecea;
+  --amber:      #ef9f27;
+  --text:       #111110;
+  --text2:      #52514e;
+  --text3:      #98978f;
+  --bg:         #f5f5f3;
+  --surface:    #ffffff;
+  --border:     rgba(0,0,0,0.08);
+  --border2:    rgba(0,0,0,0.15);
+  --r-sm:       8px;
+  --r-md:       14px;
+  --r-lg:       20px;
+  --r-xl:       24px;
+  --r-full:     999px;
+  --shadow:     0 2px 8px rgba(0,0,0,0.07);
+  --shadow-md:  0 6px 20px rgba(0,0,0,0.10);
+  --shadow-lg:  0 16px 40px rgba(0,0,0,0.14);
+  --nav-h:      68px;
+}
+
+html { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+.hidden { display: none !important; }
+
+/* ── LOGIN ─────────────────────────────────────── */
+#screen-login {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--green-deep);
+  background-image:
+    radial-gradient(ellipse at 15% 15%, rgba(42,140,63,0.5) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(184,146,42,0.25) 0%, transparent 55%);
+}
+.login-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem 1rem;
+  text-align: center;
+}
+.login-crest { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 4px 16px rgba(0,0,0,0.4)); margin-bottom: 1.25rem; }
+.login-club { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 4px; }
+.login-tagline { font-size: 14px; color: rgba(255,255,255,0.55); font-weight: 500; margin-bottom: 0.5rem; }
+.login-divider { width: 40px; height: 2px; background: var(--gold); border-radius: var(--r-full); margin: 1.25rem auto; opacity: 0.7; }
+.login-bottom {
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 2rem 1.75rem calc(2rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.2);
+}
+.login-bottom-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em; }
+.login-bottom-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+.dob-inputs { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 8px; margin-bottom: 1rem; }
+.dob-group { display: flex; flex-direction: column; gap: 5px; }
+.dob-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+.dob-input { padding: 13px 10px; font-size: 20px; font-weight: 700; text-align: center; border: 1.5px solid var(--border2); border-radius: var(--r-md); background: var(--bg); color: var(--text); letter-spacing: 0.05em; width: 100%; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+.dob-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(42,140,63,0.12); }
+.btn-login { width: 100%; background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%); color: #fff; border: none; padding: 15px; border-radius: var(--r-md); font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: 0.01em; box-shadow: 0 4px 16px rgba(42,140,63,0.35); transition: transform 0.1s, box-shadow 0.15s; }
+.btn-login:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(42,140,63,0.25); }
+.login-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+.login-hint { font-size: 12px; color: var(--text3); text-align: center; margin-top: 12px; line-height: 1.5; }
+
+/* ── APP SHELL ──────────────────────────────────── */
+#screen-app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+/* ── HEADER ────────────────────────────────────── */
+.app-header {
+  background: linear-gradient(135deg, var(--green-deep) 0%, var(--green-dark) 100%);
+  color: #fff;
+  padding: 0 1.25rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.header-crest { width: 30px; height: 30px; object-fit: contain; border-radius: 4px; }
+.header-player-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.header-group { font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: var(--r-full); }
+.btn-signout { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.85); padding: 5px 12px; border-radius: var(--r-full); font-size: 12px; font-weight: 500; cursor: pointer; }
+
+/* ── BOTTOM NAV ─────────────────────────────────── */
+.app-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.07);
+}
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: none; background: transparent; color: var(--text3); cursor: pointer; font-size: 10px; font-weight: 600; padding: 6px 2px; transition: color 0.15s; letter-spacing: 0.01em; }
+.nav-btn::before { font-size: 22px; line-height: 1; display: block; }
+.nav-btn[data-view="home"]::before    { content: "🏠"; }
+.nav-btn[data-view="idp"]::before     { content: "📊"; }
+.nav-btn[data-view="goals"]::before   { content: "🎯"; }
+.nav-btn[data-view="progress"]::before{ content: "📈"; }
+.nav-btn.active { color: var(--green); }
+
+/* ── MAIN ───────────────────────────────────────── */
+.app-main { flex: 1; max-width: 640px; width: 100%; margin: 0 auto; padding: 1.25rem 1rem calc(var(--nav-h) + 1.5rem); }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── CARDS ──────────────────────────────────────── */
+.card { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--border); padding: 1.125rem; margin-bottom: 12px; box-shadow: var(--shadow); }
+.card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text3); margin-bottom: 1rem; }
+
+/* ── HOME ───────────────────────────────────────── */
+.welcome-card { background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-deep) 100%); border-radius: var(--r-xl); padding: 1.5rem; color: #fff; margin-bottom: 14px; box-shadow: var(--shadow-md); border: none; position: relative; overflow: hidden; }
+.welcome-card::before { content: ''; position: absolute; top: -40px; right: -40px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,0.05); }
+.welcome-name { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+.welcome-sub { font-size: 13px; color: rgba(255,255,255,0.65); margin-bottom: 1.5rem; }
+.welcome-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.welcome-stat { background: rgba(255,255,255,0.12); border-radius: var(--r-md); padding: 10px; text-align: center; }
+.welcome-stat-val { font-size: 22px; font-weight: 800; line-height: 1; }
+.welcome-stat-lbl { font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.overall-ring-wrap { display: flex; align-items: center; gap: 1.25rem; padding: 1rem 0; }
+.overall-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.overall-ring svg { transform: rotate(-90deg); }
+.overall-ring-val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.overall-ring-num { font-size: 20px; font-weight: 800; color: var(--green-dark); line-height: 1; }
+.overall-ring-max { font-size: 11px; color: var(--text3); font-weight: 600; }
+.overall-ring-info { flex: 1; }
+.overall-ring-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.overall-ring-sub { font-size: 13px; color: var(--text2); line-height: 1.5; }
+.att-bar-wrap { margin-top: 8px; }
+.att-bar-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text2); margin-bottom: 4px; font-weight: 500; }
+.att-bar-track { height: 8px; background: var(--bg); border-radius: var(--r-full); overflow: hidden; border: 1px solid var(--border); }
+.att-bar-fill { height: 100%; border-radius: var(--r-full); transition: width 0.6s ease; }
+.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.quick-action { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1rem; display: flex; flex-direction: column; gap: 6px; cursor: pointer; box-shadow: var(--shadow); transition: transform 0.1s, box-shadow 0.1s; }
+.quick-action:active { transform: scale(0.97); box-shadow: none; }
+.quick-action-icon { font-size: 24px; }
+.quick-action-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.quick-action-sub { font-size: 11px; color: var(--text2); }
+
+/* ── IDP VIEW ───────────────────────────────────── */
+.idp-term-selector { display: flex; background: var(--surface); border-radius: var(--r-full); padding: 3px; gap: 2px; margin-bottom: 1.25rem; border: 1px solid var(--border); box-shadow: var(--shadow); }
+.term-btn { flex: 1; padding: 8px 6px; font-size: 12px; font-weight: 600; border: none; border-radius: var(--r-full); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; text-align: center; }
+.term-btn.active { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(42,140,63,0.3); }
+.idp-section { margin-bottom: 1.5rem; }
+.idp-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--green); margin-bottom: 0.875rem; padding-bottom: 6px; border-bottom: 2px solid var(--green-light); }
+.score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.score-row-label { font-size: 13px; font-weight: 500; color: var(--text2); width: 120px; flex-shrink: 0; }
+.score-bar-track { flex: 1; height: 10px; background: var(--bg); border-radius: var(--r-full); overflow: hidden; border: 1px solid var(--border); }
+.score-bar-fill { height: 100%; border-radius: var(--r-full); transition: width 0.6s ease; }
+.score-val { font-size: 13px; font-weight: 700; width: 32px; text-align: right; flex-shrink: 0; }
+.comments-block { background: var(--green-light); border-left: 3px solid var(--green); border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: 10px 12px; font-size: 13px; line-height: 1.65; color: var(--text); margin-top: 6px; }
+.no-data-msg { text-align: center; padding: 2rem 1rem; color: var(--text3); font-size: 14px; }
+
+/* ── METRIC GRID ────────────────────────────────── */
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(80px,1fr)); gap: 8px; margin-bottom: 1.25rem; }
+.metric-item { background: var(--bg); border-radius: var(--r-md); padding: 12px 8px; text-align: center; border: 1px solid var(--border); }
+.metric-val { font-size: 22px; font-weight: 800; color: var(--green-dark); line-height: 1; }
+.metric-lbl { font-size: 10px; color: var(--text2); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── GOALS ──────────────────────────────────────── */
+.goal-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); }
+.goal-check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--border2); flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; margin-top: 1px; }
+.goal-check.done { background: var(--green); border-color: var(--green); }
+.goal-check.done::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 800; }
+.goal-text { flex: 1; }
+.goal-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 3px; }
+.goal-title.done { text-decoration: line-through; color: var(--text3); }
+.goal-source { font-size: 11px; color: var(--text3); }
+.goal-source.player-set { color: var(--green); font-weight: 600; }
+.add-goal-form { background: var(--surface); border: 1.5px dashed var(--border2); border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 8px; }
+.add-goal-input { width: 100%; padding: 10px 12px; font-size: 14px; border: 1.5px solid var(--border2); border-radius: var(--r-md); background: var(--bg); color: var(--text); font-family: inherit; margin-bottom: 8px; }
+.add-goal-input:focus { outline: none; border-color: var(--green); }
+.btn-primary { background: var(--green); color: #fff; border: none; padding: 11px 20px; border-radius: var(--r-md); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-secondary { background: transparent; border: 1.5px solid var(--border2); color: var(--text); padding: 11px 20px; border-radius: var(--r-md); font-size: 14px; cursor: pointer; }
+.btn-danger-sm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; padding: 2px 4px; line-height: 1; flex-shrink: 0; }
+.section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text3); margin: 1.5rem 0 0.75rem; }
+
+/* ── PROGRESS ───────────────────────────────────── */
+.progress-chart-wrap { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--border); padding: 1.125rem; margin-bottom: 12px; box-shadow: var(--shadow); }
+.progress-chart-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.progress-chart-sub { font-size: 12px; color: var(--text3); margin-bottom: 1rem; }
+
+/* ── SCORE COLOURS ──────────────────────────────── */
+.col-orange { background: linear-gradient(90deg,#e07000,#f09030); }
+.col-green  { background: linear-gradient(90deg,#1a5c28,#2A8C3F); }
+.col-gold   { background: linear-gradient(90deg,#8a6a00,#B8922A); }
+
+/* ── TOAST ──────────────────────────────────────── */
+.toast { position: fixed; bottom: calc(var(--nav-h) + 16px); left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: var(--r-full); font-size: 14px; font-weight: 600; z-index: 9999; box-shadow: var(--shadow-md); white-space: nowrap; }
+
+/* ── REVIEW COMPARISON ──────────────────────────── */
+.review-grid { display: flex; gap: 0; margin-bottom: 6px; }
+.review-attr-col { width: 80px; flex-shrink: 0; }
+.review-period-col { flex: 1; padding: 0 6px; border-left: 1px solid var(--border); min-width: 0; }
+.review-period-label { font-size: 10px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.review-cat-block { margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.review-cat-block:last-child { border-bottom: none; margin-bottom: 0; }
+.review-cat-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+
+@media (max-width: 380px) {
+  .score-row-label { width: 90px; font-size: 12px; }
+  .dob-inputs { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login">
+  <div class="login-top">
+    <img src="images/crest.png" alt="BRTFC" class="login-crest">
+    <div class="login-club">BRTFC Academy</div>
+    <div class="login-tagline">Player Portal</div>
+    <div class="login-divider"></div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;">Track your development.<br>Own your progress.</div>
+  </div>
+  <div class="login-bottom">
+    <div class="login-bottom-title">Sign in</div>
+    <div class="login-bottom-sub">Enter your date of birth to access your portal</div>
+    <div class="dob-inputs">
+      <div class="dob-group">
+        <div class="dob-label">Day</div>
+        <input class="dob-input" type="number" id="dob-day" placeholder="DD" min="1" max="31" maxlength="2">
+      </div>
+      <div class="dob-group">
+        <div class="dob-label">Month</div>
+        <input class="dob-input" type="number" id="dob-month" placeholder="MM" min="1" max="12" maxlength="2">
+      </div>
+      <div class="dob-group">
+        <div class="dob-label">Year</div>
+        <input class="dob-input" type="number" id="dob-year" placeholder="YYYY" min="2000" max="2015" maxlength="4">
+      </div>
+    </div>
+    <button class="btn-login" onclick="doPlayerLogin()">Sign in to my portal</button>
+    <div id="login-error" class="login-error"></div>
+    <div class="login-hint">Your date of birth is your login. Contact your coach if you cannot get in.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="screen-app" class="hidden">
+  <header class="app-header">
+    <div class="header-left">
+      <img src="images/crest.png" alt="BRTFC" class="header-crest">
+      <div class="header-player-name" id="header-name"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="header-group" id="header-group"></span>
+      <button class="btn-signout" onclick="doSignOut()">Sign out</button>
+    </div>
+  </header>
+
+  <nav class="app-nav">
+    <button class="nav-btn active" data-view="home"     onclick="showView('home',this)">Home</button>
+    <button class="nav-btn"        data-view="idp"      onclick="showView('idp',this)">My IDP</button>
+    <button class="nav-btn"        data-view="goals"    onclick="showView('goals',this)">Goals</button>
+    <button class="nav-btn"        data-view="progress" onclick="showView('progress',this)">Progress</button>
+  </nav>
+
+  <main class="app-main">
+
+    <!-- HOME -->
+    <div id="view-home" class="view active">
+      <div class="welcome-card">
+        <div class="welcome-name" id="home-name"></div>
+        <div class="welcome-sub" id="home-sub"></div>
+        <div class="welcome-stats">
+          <div class="welcome-stat">
+            <div class="welcome-stat-val" id="home-sessions">0</div>
+            <div class="welcome-stat-lbl">Sessions</div>
+          </div>
+          <div class="welcome-stat">
+            <div class="welcome-stat-val" id="home-matches">0</div>
+            <div class="welcome-stat-lbl">Matches</div>
+          </div>
+          <div class="welcome-stat">
+            <div class="welcome-stat-val" id="home-att">-</div>
+            <div class="welcome-stat-lbl">Attendance</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">This term</div>
+        <div class="overall-ring-wrap">
+          <div class="overall-ring">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="32" fill="none" stroke="#ebebea" stroke-width="8"/>
+              <circle id="ring-circle" cx="40" cy="40" r="32" fill="none" stroke="#2A8C3F" stroke-width="8" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201" style="transition:stroke-dashoffset 0.8s ease;"/>
+            </svg>
+            <div class="overall-ring-val">
+              <div class="overall-ring-num" id="ring-val">-</div>
+              <div class="overall-ring-max">/5</div>
+            </div>
+          </div>
+          <div class="overall-ring-info">
+            <div class="overall-ring-title">Overall rating</div>
+            <div class="overall-ring-sub" id="ring-message">Your coaching team's assessment of your development this term.</div>
+          </div>
+        </div>
+        <div id="home-att-bar"></div>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-action" onclick="showView('idp',document.querySelector('[data-view=idp]'))">
+          <div class="quick-action-icon">📊</div>
+          <div class="quick-action-label">View my IDP</div>
+          <div class="quick-action-sub">Full development report</div>
+        </div>
+        <div class="quick-action" onclick="showView('goals',document.querySelector('[data-view=goals]'))">
+          <div class="quick-action-icon">🎯</div>
+          <div class="quick-action-label">My goals</div>
+          <div class="quick-action-sub">Track your targets</div>
+        </div>
+        <div class="quick-action" onclick="showView('progress',document.querySelector('[data-view=progress]'))">
+          <div class="quick-action-icon">📈</div>
+          <div class="quick-action-label">Progress</div>
+          <div class="quick-action-sub">Season trend chart</div>
+        </div>
+        <div class="quick-action" onclick="showView('idp',document.querySelector('[data-view=idp]'))">
+          <div class="quick-action-icon">💬</div>
+          <div class="quick-action-label">Coach feedback</div>
+          <div class="quick-action-sub">Read your reviews</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IDP -->
+    <div id="view-idp" class="view">
+      <div class="idp-term-selector" id="term-selector"></div>
+      <div id="idp-content"><div class="no-data-msg">Loading your IDP...</div></div>
+    </div>
+
+    <!-- GOALS -->
+    <div id="view-goals" class="view">
+      <div class="add-goal-form">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Add your own goal</div>
+        <input class="add-goal-input" type="text" id="new-goal-input" placeholder="What do you want to achieve?">
+        <button class="btn-primary" onclick="addPlayerGoal()">Add goal</button>
+      </div>
+      <div id="goals-list"></div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div id="view-progress" class="view">
+      <div class="progress-chart-wrap">
+        <div class="progress-chart-title">Season progression</div>
+        <div class="progress-chart-sub">Your scores across all three terms.</div>
+        <div id="progress-chart"></div>
+      </div>
+      <div id="progress-breakdown"></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module">
+import { db, ref, onValue, push, update, remove, set } from './js/firebase.js';
+
+let currentPlayer = null;
+let allPlayers    = {};
+let allTraining   = {};
+let allMatches    = {};
+let allMonthly    = {};
+let allGoals      = {};
+let allPlayerGoals= {};
+let halfTerms     = {};
+let termDates     = {1:{start:'',end:''},2:{start:'',end:''},3:{start:'',end:''}};
+let activeTerm    = 1;
+
+// ── FIREBASE ────────────────────────────────────────────────────
+onValue(ref(db,'players'),    s => { allPlayers     = s.val()||{}; });
+onValue(ref(db,'training'),   s => { allTraining    = s.val()||{}; });
+onValue(ref(db,'matches'),    s => { allMatches     = s.val()||{}; });
+onValue(ref(db,'monthly'),    s => { allMonthly     = s.val()||{}; });
+onValue(ref(db,'goals'),      s => { allGoals       = s.val()||{}; refreshGoalsView(); });
+onValue(ref(db,'playerGoals'),s => { allPlayerGoals = s.val()||{}; refreshGoalsView(); });
+onValue(ref(db,'halfTerms'),  s => { halfTerms      = s.val()||{}; });
+onValue(ref(db,'termDates'),  s => { if(s.val()) termDates = s.val(); });
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function getTermRange(n) {
+  const t = termDates[n];
+  if (t?.start && t?.end) return {start:t.start,end:t.end};
+  const y = new Date().getFullYear();
+  return {
+    1:{start:`${y-1}-08-01`,end:`${y-1}-10-31`},
+    2:{start:`${y-1}-11-01`,end:`${y}-01-31`},
+    3:{start:`${y}-02-01`,end:`${y}-04-30`}
+  }[n]||{start:`${y}-08-01`,end:`${y}-10-31`};
+}
+function inRange(d,r) { return d && d>=r.start && d<=r.end; }
+function avg(vals) {
+  const c = (vals||[]).map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0);
+  return c.length ? (c.reduce((a,b)=>a+b,0)/c.length) : null;
+}
+function calcAge(dob) {
+  const b=new Date(dob),n=new Date();
+  let a=n.getFullYear()-b.getFullYear();
+  if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate())) a--;
+  return a;
+}
+function barCol(v) {
+  const n=parseFloat(v);
+  if(n>3.5) return 'col-gold';
+  if(n>=2.5) return 'col-green';
+  return 'col-orange';
+}
+function scoreRow(label,val) {
+  if(!val) return '';
+  const pct=Math.round((val/5)*100);
+  return `<div class="score-row">
+    <div class="score-row-label">${label}</div>
+    <div class="score-bar-track"><div class="score-bar-fill ${barCol(val)}" style="width:${pct}%;"></div></div>
+    <div class="score-val">${val.toFixed(1)}</div>
+  </div>`;
+}
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.remove('hidden');
+  setTimeout(()=>el.classList.add('hidden'),2500);
+}
+function initials(p) { return ((p.fname?.[0]||'')+(p.lname?.[0]||'')).toUpperCase(); }
+
+const DNA_LABELS = {
+  technical:'On the Ball', tactical:'Game Understanding',
+  behaviours:'Compete and Commit', physical:'Physical Execution',
+  nonNegotiables:'Non-Negotiables'
+};
+
+// ── LOGIN ────────────────────────────────────────────────────────
+window.doPlayerLogin = function() {
+  const day   = document.getElementById('dob-day').value.padStart(2,'0');
+  const month = document.getElementById('dob-month').value.padStart(2,'0');
+  const year  = document.getElementById('dob-year').value;
+  if (!day||!month||!year||year.length!==4) {
+    document.getElementById('login-error').textContent='Enter your full date of birth.';
+    return;
+  }
+  const dob = `${year}-${month}-${day}`;
+  const match = Object.entries(allPlayers).find(([id,p]) => p.dob === dob);
+  if (!match) {
+    document.getElementById('login-error').textContent='No player found with that date of birth. Check with your coach.';
+    return;
+  }
+  currentPlayer = {id:match[0], ...match[1]};
+  document.getElementById('login-error').textContent='';
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-app').classList.remove('hidden');
+  initPlayerApp();
+};
+
+// Auto-advance DOB inputs
+['dob-day','dob-month'].forEach((id,i) => {
+  document.getElementById(id)?.addEventListener('input', e => {
+    if (e.target.value.length >= 2) {
+      const next = ['dob-month','dob-year'][i];
+      document.getElementById(next)?.focus();
+    }
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter' && !document.getElementById('screen-login').classList.contains('hidden')) doPlayerLogin();
+});
+
+window.doSignOut = function() {
+  currentPlayer=null;
+  document.getElementById('screen-app').classList.add('hidden');
+  document.getElementById('screen-login').classList.remove('hidden');
+  ['dob-day','dob-month','dob-year'].forEach(id=>document.getElementById(id).value='');
+};
+
+// ── INIT ─────────────────────────────────────────────────────────
+function initPlayerApp() {
+  const p = currentPlayer;
+  document.getElementById('header-name').textContent = p.fname+' '+p.lname;
+  document.getElementById('header-group').textContent = p.group;
+  document.getElementById('home-name').textContent = 'Hi, '+p.fname+' 👋';
+  document.getElementById('home-sub').textContent = p.pos+' · '+p.group+' · Age '+calcAge(p.dob);
+
+  buildTermSelector();
+  renderHome();
+  renderIDP();
+  renderGoals();
+  renderProgress();
+}
+
+function buildTermSelector() {
+  const sel = document.getElementById('term-selector');
+  const labels = {1:'Term 1',2:'Term 2',3:'Term 3'};
+  sel.innerHTML = [1,2,3].map(n =>
+    `<button class="term-btn ${n===activeTerm?'active':''}" onclick="setTerm(${n},this)">${labels[n]}</button>`
+  ).join('');
+}
+
+window.setTerm = function(n, btn) {
+  activeTerm = n;
+  document.querySelectorAll('.term-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderIDP();
+};
+
+// ── HOME ─────────────────────────────────────────────────────────
+function renderHome() {
+  const pid = currentPlayer.id;
+
+  // Determine current term
+  const today = new Date().toISOString().split('T')[0];
+  let curTerm = 1;
+  for (let n=1;n<=3;n++) {
+    const r=getTermRange(n);
+    if (today>=r.start && today<=r.end) { curTerm=n; break; }
+  }
+  const range = getTermRange(curTerm);
+
+  const tr = Object.values(allTraining).filter(t=>t.entries?.[pid]&&inRange(t.date,range)&&(!t.entries[pid].attendance||t.entries[pid].attendance==='present'));
+  const mt = Object.values(allMatches).filter(m=>m.entries?.[pid]&&inRange(m.date,range)&&(!m.entries[pid].attendance||m.entries[pid].attendance==='present'));
+
+  const allSess = [...Object.values(allTraining),...Object.values(allMatches)].filter(s=>s.entries?.[pid]);
+  const total   = allSess.length;
+  const present = allSess.filter(s=>!s.entries[pid].attendance||s.entries[pid].attendance==='present').length;
+  const attPct  = total ? Math.round((present/total)*100) : null;
+
+  document.getElementById('home-sessions').textContent = tr.length;
+  document.getElementById('home-matches').textContent  = mt.length;
+  document.getElementById('home-att').textContent      = attPct ? attPct+'%' : '-';
+
+  const vals = [
+    avg(tr.map(t=>t.entries[pid].attitude)),
+    avg(tr.map(t=>t.entries[pid].communication)),
+    avg(tr.map(t=>t.entries[pid].performance)),
+    avg(mt.map(m=>m.entries[pid].mindset)),
+    avg(mt.map(m=>m.entries[pid].physical)),
+    avg(mt.map(m=>m.entries[pid].impact))
+  ].map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0);
+
+  const overall = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  const ringEl  = document.getElementById('ring-val');
+  const circle  = document.getElementById('ring-circle');
+
+  if (overall) {
+    ringEl.textContent = overall.toFixed(1);
+    const pct = (overall-1)/4;
+    const circumference = 2*Math.PI*32;
+    circle.style.strokeDashoffset = circumference*(1-pct);
+    circle.style.stroke = overall>3.5?'#B8922A':overall>=2.5?'#2A8C3F':'#e07000';
+    document.getElementById('ring-message').textContent =
+      overall>3.5 ? 'Outstanding. You are exceeding the standard this term.' :
+      overall>=2.5 ? 'Good progress. Keep pushing to develop further.' :
+      'There are clear areas to focus on. Your coaches are here to help.';
+  } else {
+    ringEl.textContent = '-';
+    document.getElementById('ring-message').textContent = 'No data recorded yet for this term.';
+  }
+
+  if (attPct !== null) {
+    const col = attPct<85?'col-orange':'col-green';
+    document.getElementById('home-att-bar').innerHTML = `
+      <div class="att-bar-wrap">
+        <div class="att-bar-label"><span>Attendance this season</span><span style="font-weight:700;color:${attPct<85?'var(--red)':'var(--green-dark)'};">${attPct}%</span></div>
+        <div class="att-bar-track"><div class="att-bar-fill ${col}" style="width:${attPct}%;"></div></div>
+        ${attPct<85?'<div style="font-size:12px;color:var(--red);margin-top:5px;">⚠ Below 85% threshold. Speak to your coach.</div>':''}
+      </div>`;
+  }
+}
+
+// ── IDP ──────────────────────────────────────────────────────────
+function renderIDP() {
+  const pid   = currentPlayer.id;
+  const range = getTermRange(activeTerm);
+  const el    = document.getElementById('idp-content');
+
+  const tr = Object.values(allTraining).filter(t=>t.entries?.[pid]&&inRange(t.date,range)&&(!t.entries[pid].attendance||t.entries[pid].attendance==='present'));
+  const mt = Object.values(allMatches).filter(m=>m.entries?.[pid]&&inRange(m.date,range)&&(!m.entries[pid].attendance||m.entries[pid].attendance==='present'));
+  const mo = Object.values(allMonthly).filter(r=>{
+    if(r.pid!==pid) return false;
+    if(r.month?.startsWith('ht_')) { const ht=halfTerms[r.month]; return ht?.start?inRange(ht.start,range):true; }
+    return r.month?inRange(r.month+'-01',range):true;
+  });
+
+  const tAttAvg  = avg(tr.map(t=>t.entries[pid].attitude));
+  const tCommAvg = avg(tr.map(t=>t.entries[pid].communication));
+  const tPerfAvg = avg(tr.map(t=>t.entries[pid].performance));
+  const mMindAvg = avg(mt.map(m=>m.entries[pid].mindset));
+  const mPhysAvg = avg(mt.map(m=>m.entries[pid].physical));
+  const mImpAvg  = avg(mt.map(m=>m.entries[pid].impact));
+
+  const goals = Object.entries(allGoals).filter(([id,g])=>g.pid===pid);
+
+  let html = '';
+
+  if (!tr.length && !mt.length && !mo.length) {
+    html = '<div class="no-data-msg">No data recorded for this term yet.<br>Check back after your next session.</div>';
+    el.innerHTML = html; return;
+  }
+
+  html += `<div class="metric-grid">
+    ${tr.length?`<div class="metric-item"><div class="metric-val">${tr.length}</div><div class="metric-lbl">Sessions</div></div>`:''}
+    ${mt.length?`<div class="metric-item"><div class="metric-val">${mt.length}</div><div class="metric-lbl">Matches</div></div>`:''}
+    ${mo.length?`<div class="metric-item"><div class="metric-val">${mo.length}</div><div class="metric-lbl">Reviews</div></div>`:''}
+  </div>`;
+
+  if (tr.length) {
+    html += `<div class="idp-section">
+      <div class="idp-section-title">Training</div>
+      ${scoreRow('Attitude',tAttAvg)}
+      ${scoreRow('Communication',tCommAvg)}
+      ${scoreRow('Performance',tPerfAvg)}
+    </div>`;
+  }
+
+  if (mt.length) {
+    html += `<div class="idp-section">
+      <div class="idp-section-title">Match performance</div>
+      ${scoreRow('Mindset',mMindAvg)}
+      ${scoreRow('Physical',mPhysAvg)}
+      ${scoreRow('Impact',mImpAvg)}
+    </div>`;
+  }
+
+  if (mo.length) {
+    html += `<div class="idp-section">
+      <div class="idp-section-title">Detailed reviews</div>`;
+    ['technical','tactical','behaviours','physical'].forEach(cat => {
+      const hasAny = mo.some(r=>r[cat]?.rating||r[cat]?.comments);
+      if (!hasAny) return;
+      html += `<div class="review-cat-block">
+        <div class="review-cat-name">${DNA_LABELS[cat]}</div>
+        <div class="review-grid">
+          <div class="review-attr-col" style="font-size:11px;color:var(--text3);padding-top:2px;">Rating</div>
+          ${mo.map(r=>{
+            const rating=r[cat]?.rating;
+            const pct=rating?Math.round((parseFloat(rating)/5)*100):0;
+            const htLabel=r.month?.startsWith('ht_')&&halfTerms[r.month]?.label?halfTerms[r.month].label:r.month||'Review';
+            return `<div class="review-period-col">
+              <div class="review-period-label">${htLabel}</div>
+              ${rating?`<div style="display:flex;align-items:center;gap:5px;">
+                <div class="score-bar-track" style="flex:1;height:7px;"><div class="score-bar-fill ${barCol(rating)}" style="width:${pct}%;"></div></div>
+                <span style="font-size:11px;font-weight:700;">${parseFloat(rating).toFixed(1)}</span>
+              </div>`:'<span style="font-size:11px;color:var(--text3);">N/A</span>'}
+            </div>`;
+          }).join('')}
+        </div>
+        ${mo.some(r=>r[cat]?.comments)?`<div style="margin-top:8px;">${mo.map(r=>{
+          if(!r[cat]?.comments) return '';
+          const htLabel=r.month?.startsWith('ht_')&&halfTerms[r.month]?.label?halfTerms[r.month].label:'Review';
+          return `<div class="comments-block" style="margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;">${htLabel}</span><br>${r[cat].comments}</div>`;
+        }).join('')}</div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (goals.length) {
+    html += `<div class="idp-section">
+      <div class="idp-section-title">Coaching goals</div>
+      ${goals.slice(0,2).map(([id,g])=>`
+        <div class="goal-item">
+          <div class="goal-check ${g.achieved?'done':''}"></div>
+          <div class="goal-text">
+            <div class="goal-title ${g.achieved?'done':''}">${g.text}</div>
+            <div class="goal-source">${g.achieved?'✓ Achieved':'Set by your coaching team'}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ── GOALS ────────────────────────────────────────────────────────
+window.addPlayerGoal = async function() {
+  const inp  = document.getElementById('new-goal-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  await push(ref(db,'playerGoals'),{
+    pid:    currentPlayer.id,
+    text,
+    done:   false,
+    setAt:  new Date().toISOString()
+  });
+  inp.value='';
+  toast('Goal added.');
+};
+
+window.togglePlayerGoal = async function(gid, current) {
+  await update(ref(db,`playerGoals/${gid}`),{done:!current});
+};
+
+window.deletePlayerGoal = async function(gid) {
+  await remove(ref(db,`playerGoals/${gid}`));
+};
+
+function refreshGoalsView() {
+  if (!currentPlayer) return;
+  renderGoals();
+}
+
+function renderGoals() {
+  const pid  = currentPlayer?.id;
+  const el   = document.getElementById('goals-list');
+  if (!el || !pid) return;
+
+  const coachGoals  = Object.entries(allGoals).filter(([id,g])=>g.pid===pid);
+  const playerGoals = Object.entries(allPlayerGoals).filter(([id,g])=>g.pid===pid);
+
+  let html = '';
+
+  if (coachGoals.length) {
+    html += `<div class="section-label">From your coaches</div>`;
+    html += coachGoals.slice(0,2).map(([id,g])=>`
+      <div class="goal-item">
+        <div class="goal-check ${g.achieved?'done':''}"></div>
+        <div class="goal-text">
+          <div class="goal-title ${g.achieved?'done':''}">${g.text}</div>
+          <div class="goal-source">${g.achieved?'✓ Achieved':'Set by your coaching team'}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  if (playerGoals.length) {
+    html += `<div class="section-label">Your personal goals</div>`;
+    html += playerGoals.map(([id,g])=>`
+      <div class="goal-item">
+        <div class="goal-check ${g.done?'done':''}" onclick="togglePlayerGoal('${id}',${g.done})"></div>
+        <div class="goal-text">
+          <div class="goal-title ${g.done?'done':''}">${g.text}</div>
+          <div class="goal-source player-set">Your goal &bull; ${g.done?'✓ Done':'In progress'}</div>
+        </div>
+        <button class="btn-danger-sm" onclick="deletePlayerGoal('${id}')">✕</button>
+      </div>`).join('');
+  }
+
+  if (!coachGoals.length && !playerGoals.length) {
+    html = '<div class="no-data-msg" style="padding:1.5rem 0;">No goals yet. Add your first goal above or ask your coach.</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// ── PROGRESS ─────────────────────────────────────────────────────
+function renderProgress() {
+  const pid = currentPlayer?.id;
+  if (!pid) return;
+
+  const METRICS = [
+    {label:'Attitude',      colour:'#2A8C3F', getData:(tr,mt)=>tr.map(t=>t.entries[pid]?.attitude)},
+    {label:'Communication', colour:'#185fa5', getData:(tr,mt)=>tr.map(t=>t.entries[pid]?.communication)},
+    {label:'Performance',   colour:'#B8922A', getData:(tr,mt)=>tr.map(t=>t.entries[pid]?.performance)},
+    {label:'Mindset',       colour:'#ef9f27', getData:(tr,mt)=>mt.map(m=>m.entries[pid]?.mindset)},
+    {label:'Physical',      colour:'#C0272D', getData:(tr,mt)=>mt.map(m=>m.entries[pid]?.physical)},
+    {label:'Impact',        colour:'#7b2d8b', getData:(tr,mt)=>mt.map(m=>m.entries[pid]?.impact)}
+  ];
+
+  const termData = [1,2,3].map(n=>{
+    const r=getTermRange(n);
+    const tr=Object.values(allTraining).filter(t=>t.entries?.[pid]&&inRange(t.date,r)&&(!t.entries[pid].attendance||t.entries[pid].attendance==='present'));
+    const mt=Object.values(allMatches).filter(m=>m.entries?.[pid]&&inRange(m.date,r)&&(!m.entries[pid].attendance||m.entries[pid].attendance==='present'));
+    return {n,tr,mt,hasData:tr.length>0||mt.length>0};
+  });
+
+  // SVG chart
+  const W=520,H=160,PAD_L=46,PAD_R=14,PAD_T=14,PAD_B=26;
+  const cW=W-PAD_L-PAD_R,cH=H-PAD_T-PAD_B;
+  const xPos=[0,1,2].map(i=>PAD_L+(i/2)*cW);
+  const valY=v=>PAD_T+cH-((parseFloat(v)-1)/4)*cH;
+
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;" xmlns="http://www.w3.org/2000/svg">`;
+  [1,2,3,4,5].forEach(v=>{
+    const y=valY(v);
+    svg+=`<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="#e8e8e5" stroke-width="1"/>`;
+    svg+=`<text x="${PAD_L-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#98978f">${v}</text>`;
+  });
+  [0,1,2].forEach(i=>{
+    svg+=`<text x="${xPos[i]}" y="${H-4}" text-anchor="middle" font-size="11" font-weight="700" fill="#52514e">Term ${i+1}</text>`;
+    if(!termData[i].hasData) svg+=`<rect x="${xPos[i]-cW/6}" y="${PAD_T}" width="${cW/3}" height="${cH}" fill="#ebebea" opacity="0.5"/>`;
+  });
+
+  METRICS.forEach(metric=>{
+    const points=termData.map((td,i)=>{
+      const vals=metric.getData(td.tr,td.mt).map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0);
+      const a=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+      return a?{x:xPos[i],y:valY(a),v:a}:null;
+    });
+    const valid=points.filter(Boolean);
+    if(!valid.length) return;
+    if(valid.length>1) {
+      for(let i=0;i<valid.length-1;i++)
+        svg+=`<line x1="${valid[i].x}" y1="${valid[i].y}" x2="${valid[i+1].x}" y2="${valid[i+1].y}" stroke="${metric.colour}" stroke-width="2.5" stroke-linecap="round"/>`;
+    }
+    valid.forEach(pt=>{
+      svg+=`<circle cx="${pt.x}" cy="${pt.y}" r="5" fill="${metric.colour}" stroke="white" stroke-width="1.5"/>`;
+      svg+=`<text x="${pt.x}" y="${pt.y-10}" text-anchor="middle" font-size="10" font-weight="700" fill="${metric.colour}">${pt.v.toFixed(1)}</text>`;
+    });
+  });
+  svg+=`</svg>`;
+
+  const legend=METRICS.map(m=>
+    `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">
+      <span style="width:14px;height:3px;border-radius:99px;background:${m.colour};display:inline-block;flex-shrink:0;"></span>${m.label}
+    </span>`
+  ).join('');
+
+  document.getElementById('progress-chart').innerHTML=svg+`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">${legend}</div>`;
+
+  // Per-term breakdown
+  let breakdown='';
+  termData.filter(td=>td.hasData).forEach(td=>{
+    const termLabels={1:'Term 1 (Aug-Oct)',2:'Term 2 (Nov-Jan)',3:'Term 3 (Feb-Apr)'};
+    const tA=avg(td.tr.map(t=>t.entries[pid]?.attitude));
+    const tC=avg(td.tr.map(t=>t.entries[pid]?.communication));
+    const tP=avg(td.tr.map(t=>t.entries[pid]?.performance));
+    const mM=avg(td.mt.map(m=>m.entries[pid]?.mindset));
+    const mPh=avg(td.mt.map(m=>m.entries[pid]?.physical));
+    const mI=avg(td.mt.map(m=>m.entries[pid]?.impact));
+    const all=[tA,tC,tP,mM,mPh,mI].map(v=>parseFloat(v)).filter(v=>!isNaN(v)&&v>0);
+    const overall=all.length?(all.reduce((a,b)=>a+b,0)/all.length):null;
+    breakdown+=`<div class="card">
+      <div class="card-title">${termLabels[td.n]}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Overall: <strong style="color:var(--green-dark);font-size:15px;">${overall?overall.toFixed(1)+'/5':'No data'}</strong></div>
+      ${scoreRow('Attitude',tA)}${scoreRow('Communication',tC)}${scoreRow('Performance',tP)}
+      ${scoreRow('Mindset',mM)}${scoreRow('Physical',mPh)}${scoreRow('Impact',mI)}
+    </div>`;
+  });
+  document.getElementById('progress-breakdown').innerHTML=breakdown||'<div class="no-data-msg">Progress data will appear here as the season builds.</div>';
+}
+
+// ── VIEW SWITCHING ────────────────────────────────────────────────
+window.showView = function(v, btn) {
+  document.querySelectorAll('.view').forEach(el=>{el.classList.remove('active');});
+  document.getElementById('view-'+v)?.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(v==='progress') renderProgress();
+  if(v==='goals')    renderGoals();
+  if(v==='home')     renderHome();
+};
+</script>
+</body>
+</html>
