@@ -340,6 +340,7 @@
         <button class="admin-tab" onclick="switchAdminTab('halfterms',this)">Half terms</button>
         <button class="admin-tab" onclick="switchAdminTab('bulkidp',this)">Bulk IDP</button>
         <button class="admin-tab" onclick="switchAdminTab('data',this)">Data</button>
+        <button class="admin-tab" onclick="switchAdminTab('pins',this)">Player PINs</button>
       </div>
 
       <!-- COACHES TAB -->
@@ -503,6 +504,30 @@
           <div id="dm-status" class="status-msg"></div>
         </div>
         <div id="dm-entries-list"></div>
+      </div>
+
+      <!-- PLAYER PINs TAB -->
+      <div id="admin-pins" class="admin-panel hidden">
+        <div class="form-card">
+          <div class="form-section-title">Player PIN management</div>
+          <p class="help-text">Each player needs their PIN to access the player portal alongside their date of birth. Use the buttons below to send welcome emails or print a PIN sheet for distribution at training.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Filter by age group</label>
+              <select id="pin-filter-group" onchange="renderPINSheet()">
+                <option value="all">All groups</option>
+                <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="sendAllWelcomeEmails()">✉ Email all players</button>
+            <button class="btn-secondary" onclick="printPINSheet()">Print PIN sheet</button>
+            <button class="btn-secondary" onclick="regenerateAllPINs()">Regenerate all PINs</button>
+          </div>
+          <div id="pin-status" class="status-msg"></div>
+        </div>
+        <div id="pin-sheet-list"></div>
       </div>
 
     </div><!-- /admin -->
