@@ -20,6 +20,10 @@ let activePlayerFilter = 'all';
 
 const POSITIONS = ['GK','CB','RB','LB','CDM','CM','CAM','RW','LW','ST'];
 
+function generatePlayerPIN() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 const PHASE_GROUPS = {
   '1':    ['U14','U15'],
   '2':    ['U16','U18'],
@@ -1217,6 +1221,7 @@ window.switchAdminTab = function(tab, btn) {
   if (tab === 'halfterms') renderHalfTermFields();
   if (tab === 'bulkidp')    { document.getElementById('bulk-idp-list').innerHTML = ''; setStatus('bulk-status','',''); }
   if (tab === 'data')       { document.getElementById('dm-entries-list').innerHTML = ''; document.getElementById('dm-type').value = ''; document.getElementById('dm-status').textContent = ''; }
+  if (tab === 'pins')       { renderPINSheet(); }
 };
 
 window.addCoach = async function() {
@@ -1270,9 +1275,10 @@ window.addPlayerManual = async function() {
   const email  = document.getElementById('ap-email').value.trim();
   const pemail = document.getElementById('ap-pemail').value.trim();
   if (!fname || !lname) { setStatus('player-status', 'First and last name required.', false); return; }
-  await push(ref(db, 'players'), { fname, lname, dob, group, pos, email, pemail });
+  const playerPin = generatePlayerPIN();
+  await push(ref(db, 'players'), { fname, lname, dob, group, pos, email, pemail, playerPin });
   ['ap-fname','ap-lname','ap-dob','ap-email','ap-pemail'].forEach(id => document.getElementById(id).value = '');
-  setStatus('player-status', `${fname} ${lname} added.`, true);
+  setStatus('player-status', `${fname} ${lname} added. PIN: ${playerPin}`, true);
 };
 
 function renderAdminPlayers() {
@@ -1285,11 +1291,48 @@ function renderAdminPlayers() {
       <div class="data-row-info">
         <div class="data-row-name">${p.fname} ${p.lname}</div>
         <div class="data-row-sub">${p.group} &bull; ${p.pos} &bull; DOB: ${p.dob || 'N/A'}</div>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:600;background:var(--bg2);border:1px solid var(--border2);padding:2px 10px;border-radius:var(--r-full);font-family:monospace;letter-spacing:0.1em;">PIN: ${p.playerPin || 'None'}</span>
+          <button onclick="regeneratePIN('${id}','${p.fname}')" style="font-size:11px;color:var(--green);background:none;border:none;cursor:pointer;font-weight:600;padding:0;">Regenerate</button>
+          ${p.email||p.pemail ? `<button onclick="sendWelcomeEmail('${id}')" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:600;padding:0;">✉ Send welcome</button>` : ''}
+        </div>
       </div>
       <button class="btn-danger" onclick="removePlayer('${id}','${p.fname} ${p.lname}')">Remove</button>
     </div>
   `).join('');
 }
+
+window.regeneratePIN = async function(pid, fname) {
+  const newPin = generatePlayerPIN();
+  await update(ref(db, `players/${pid}`), { playerPin: newPin });
+  toast(`New PIN for ${fname}: ${newPin}`);
+};
+
+window.sendWelcomeEmail = function(pid) {
+  const p = allPlayers[pid];
+  if (!p) return;
+  const to = [p.email, p.pemail].filter(Boolean).join(',');
+  if (!to) { toast('No email address on file.'); return; }
+  const portalUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'player.html';
+  const subject = encodeURIComponent(`BRTFC Academy Player Portal — Welcome ${p.fname}`);
+  const body = encodeURIComponent(
+`Hi ${p.fname} and family,
+
+You have been added to the Bognor Regis Town FC Academy player portal. You can now view your Individual Development Plan, track your progress, and set your own goals.
+
+Your login details:
+Portal: ${portalUrl}
+Date of birth: ${p.dob || 'Your date of birth'}
+PIN: ${p.playerPin || 'Contact your coach for your PIN'}
+
+To sign in, go to the portal link above, enter your date of birth and your PIN.
+
+Keep your PIN private. If you lose it, ask your coach to reset it.
+
+BRTFC Academy Coaching Team`
+  );
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+};
 
 window.removePlayer = async function(id, name) {
   if (!confirm(`Remove ${name} and all their data?`)) return;
@@ -1336,9 +1379,10 @@ window.importFromSheets = async function() {
       const validGroups = ['U14','U15','U16','U18'];
       await push(ref(db, 'players'), {
         fname, lname, dob,
-        group:  validGroups.includes(group) ? group : 'U16',
-        pos:    POSITIONS.includes(pos) ? pos : 'CM',
-        email, pemail
+        group:    validGroups.includes(group) ? group : 'U16',
+        pos:      POSITIONS.includes(pos) ? pos : 'CM',
+        email, pemail,
+        playerPin: generatePlayerPIN()
       });
       added++;
     }
@@ -2419,3 +2463,82 @@ window.renderPotentialHistory = function() {
     </table>
   </div>`;
 };
+
+// ── PIN MANAGEMENT ────────────────────────────────────────────────
+window.renderPINSheet = function() {
+  const grp = document.getElementById('pin-filter-group')?.value || 'all';
+  const el  = document.getElementById('pin-sheet-list');
+  if (!el) return;
+
+  const sorted = Object.entries(allPlayers)
+    .filter(([id,p]) => grp === 'all' || p.group === grp)
+    .sort((a,b) => a[1].group.localeCompare(b[1].group) || a[1].lname.localeCompare(b[1].lname));
+
+  if (!sorted.length) { el.innerHTML = '<div class="empty-state">No players found.</div>'; return; }
+
+  el.innerHTML = `<div id="printable-pin-sheet">
+    <div class="pin-sheet-header">
+      <img src="images/crest.png" alt="BRTFC" style="width:40px;height:40px;object-fit:contain;">
+      <div>
+        <div style="font-size:15px;font-weight:700;">BRTFC Academy — Player Portal PINs</div>
+        <div style="font-size:12px;color:var(--text2);">Confidential. Share with players and parents only.</div>
+      </div>
+    </div>
+    <table class="pin-table">
+      <thead><tr><th>Player</th><th>Group</th><th>DOB</th><th>PIN</th><th>Portal</th></tr></thead>
+      <tbody>
+        ${sorted.map(([id,p]) => `<tr>
+          <td style="font-weight:600;">${p.fname} ${p.lname}</td>
+          <td><span class="badge badge-group">${p.group}</span></td>
+          <td style="font-family:monospace;">${p.dob||'N/A'}</td>
+          <td><span style="font-family:monospace;font-weight:800;font-size:15px;letter-spacing:0.15em;color:var(--green-dark);">${p.playerPin||'—'}</span></td>
+          <td style="font-size:11px;color:var(--text3);">player.html</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text3);margin-top:12px;text-align:center;">Login: Enter date of birth + PIN at the player portal. Keep your PIN private.</div>
+  </div>`;
+};
+
+window.printPINSheet = function() {
+  renderPINSheet();
+  setTimeout(() => window.print(), 400);
+};
+
+window.sendAllWelcomeEmails = function() {
+  const grp = document.getElementById('pin-filter-group')?.value || 'all';
+  const players = Object.entries(allPlayers)
+    .filter(([id,p]) => (grp==='all'||p.group===grp) && (p.email||p.pemail))
+    .sort((a,b) => a[1].lname.localeCompare(b[1].lname));
+
+  if (!players.length) { setStatus('pin-status','No players with email addresses found.',false); return; }
+
+  let i = 0;
+  const sendNext = () => {
+    if (i >= players.length) {
+      setStatus('pin-status', `${players.length} welcome email${players.length!==1?'s':''} opened.`, true);
+      return;
+    }
+    setStatus('pin-status', `Opening email ${i+1} of ${players.length}...`, true);
+    sendWelcomeEmail(players[i][0]);
+    i++;
+    setTimeout(sendNext, 1500);
+  };
+  sendNext();
+};
+
+window.regenerateAllPINs = async function() {
+  const grp = document.getElementById('pin-filter-group')?.value || 'all';
+  if (!confirm(`Regenerate PINs for ${grp === 'all' ? 'all players' : grp}? Players will need to be told their new PINs.`)) return;
+  const players = Object.entries(allPlayers)
+    .filter(([id,p]) => grp==='all'||p.group===grp);
+  for (const [id] of players) {
+    await update(ref(db, `players/${id}`), { playerPin: generatePlayerPIN() });
+  }
+  toast(`${players.length} PINs regenerated.`);
+  renderPINSheet();
+  renderAdminPlayers();
+};
+
+// Wire PIN tab switch
+const _origSwitchAdmin = window.switchAdminTab;
