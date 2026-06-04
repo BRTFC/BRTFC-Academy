@@ -262,9 +262,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI'
         <input class="dob-input" type="number" id="dob-year" placeholder="YYYY" min="2000" max="2015" maxlength="4">
       </div>
     </div>
+    <div class="dob-group" style="margin-bottom:12px;">
+      <div class="dob-label">Your PIN</div>
+      <input class="dob-input" type="password" id="player-pin" placeholder="••••" maxlength="4" style="letter-spacing:0.3em;font-size:24px;">
+    </div>
     <button class="btn-login" onclick="doPlayerLogin()">Sign in to my portal</button>
     <div id="login-error" class="login-error"></div>
-    <div class="login-hint">Your date of birth is your login. Contact your coach if you cannot get in.</div>
+    <div class="login-hint">Enter your date of birth and the PIN your coach gave you. Contact your coach if you need help.</div>
     <div class="sponsor-block">
       <span class="sponsor-label">Powered by</span>
       <img src="images/sponsor.png" alt="Sponsor" class="sponsor-logo" onerror="this.parentElement.style.display='none'">
@@ -470,14 +474,22 @@ window.doPlayerLogin = function() {
   const day   = document.getElementById('dob-day').value.padStart(2,'0');
   const month = document.getElementById('dob-month').value.padStart(2,'0');
   const year  = document.getElementById('dob-year').value;
+  const pin   = document.getElementById('player-pin').value.trim();
   if (!day||!month||!year||year.length!==4) {
     document.getElementById('login-error').textContent='Enter your full date of birth.';
     return;
   }
+  if (!pin) {
+    document.getElementById('login-error').textContent='Enter your PIN.';
+    return;
+  }
   const dob = `${year}-${month}-${day}`;
-  const match = Object.entries(allPlayers).find(([id,p]) => p.dob === dob);
+  const match = Object.entries(allPlayers).find(([id,p]) =>
+    p.dob === dob && String(p.playerPin) === String(pin)
+  );
   if (!match) {
-    document.getElementById('login-error').textContent='No player found with that date of birth. Check with your coach.';
+    document.getElementById('login-error').textContent='Date of birth or PIN is incorrect. Check with your coach.';
+    document.getElementById('player-pin').value='';
     return;
   }
   currentPlayer = {id:match[0], ...match[1]};
@@ -505,7 +517,7 @@ window.doSignOut = function() {
   currentPlayer=null;
   document.getElementById('screen-app').classList.add('hidden');
   document.getElementById('screen-login').classList.remove('hidden');
-  ['dob-day','dob-month','dob-year'].forEach(id=>document.getElementById(id).value='');
+  ['dob-day','dob-month','dob-year','player-pin'].forEach(id=>document.getElementById(id).value='');
 };
 
 // ── INIT ─────────────────────────────────────────────────────────
