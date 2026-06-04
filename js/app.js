@@ -202,7 +202,7 @@ function renderPlayersView() {
         <div class="player-card-name">${p.fname} ${p.lname}</div>
         <div class="player-card-meta">
           <span class="badge badge-group">${p.group}</span>
-          <span class="badge badge-pos">${p.pos}</span>
+          <span class="badge badge-pos">${p.pos}${p.pos2 ? ' / '+p.pos2 : ''}</span>
           ${sessions ? `<span style="font-size:11px;color:var(--text3);">${sessions} sessions</span>` : ''}
         </div>
       </div>
@@ -1297,7 +1297,10 @@ function renderAdminPlayers() {
           ${p.email||p.pemail ? `<button onclick="sendWelcomeEmail('${id}')" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:600;padding:0;">✉ Send welcome</button>` : ''}
         </div>
       </div>
-      <button class="btn-danger" onclick="removePlayer('${id}','${p.fname} ${p.lname}')">Remove</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-secondary" style="font-size:13px;padding:6px 14px;" onclick="openEditPlayer('${id}')">Edit</button>
+        <button class="btn-danger" onclick="removePlayer('${id}','${p.fname} ${p.lname}')">Remove</button>
+      </div>
     </div>
   `).join('');
 }
@@ -1332,6 +1335,45 @@ Keep your PIN private. If you lose it, ask your coach to reset it.
 BRTFC Academy Coaching Team`
   );
   window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+};
+
+window.openEditPlayer = function(pid) {
+  const p = allPlayers[pid];
+  if (!p) return;
+  document.getElementById('edit-player-id').value  = pid;
+  document.getElementById('edit-fname').value       = p.fname || '';
+  document.getElementById('edit-lname').value       = p.lname || '';
+  document.getElementById('edit-dob').value         = p.dob   || '';
+  document.getElementById('edit-group').value       = p.group || 'U16';
+  document.getElementById('edit-pos').value         = p.pos   || 'CM';
+  document.getElementById('edit-pos2').value        = p.pos2  || '';
+  document.getElementById('edit-email').value       = p.email  || '';
+  document.getElementById('edit-pemail').value      = p.pemail || '';
+  document.getElementById('edit-player-status').textContent = '';
+  document.getElementById('modal-edit-player').classList.remove('hidden');
+};
+
+window.savePlayerEdit = async function() {
+  const pid    = document.getElementById('edit-player-id').value;
+  const fname  = document.getElementById('edit-fname').value.trim();
+  const lname  = document.getElementById('edit-lname').value.trim();
+  const dob    = document.getElementById('edit-dob').value;
+  const group  = document.getElementById('edit-group').value;
+  const pos    = document.getElementById('edit-pos').value;
+  const pos2   = document.getElementById('edit-pos2').value;
+  const email  = document.getElementById('edit-email').value.trim();
+  const pemail = document.getElementById('edit-pemail').value.trim();
+
+  if (!fname || !lname) {
+    document.getElementById('edit-player-status').textContent = 'First and last name are required.';
+    document.getElementById('edit-player-status').className = 'status-msg status-err';
+    return;
+  }
+
+  await update(ref(db, `players/${pid}`), { fname, lname, dob, group, pos, pos2, email, pemail });
+  document.getElementById('edit-player-status').textContent = 'Saved.';
+  document.getElementById('edit-player-status').className = 'status-msg status-ok';
+  setTimeout(() => closeModal('modal-edit-player'), 800);
 };
 
 window.removePlayer = async function(id, name) {
