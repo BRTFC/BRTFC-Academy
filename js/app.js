@@ -10,6 +10,7 @@ let allTraining  = {};
 let allMatches   = {};
 let allMonthly   = {};
 let allGoals     = {};
+let allFitness   = {};
 let halfTerms    = {};
 let termDates    = {
   1: { start: '', end: '' },
@@ -83,6 +84,7 @@ function listenData() {
   onValue(ref(db, 'matches'),   s => { allMatches  = s.val() || {}; });
   onValue(ref(db, 'monthly'),   s => { allMonthly  = s.val() || {}; });
   onValue(ref(db, 'goals'),     s => { allGoals    = s.val() || {}; });
+  onValue(ref(db, 'fitness'),   s => { allFitness  = s.val() || {}; });
   onValue(ref(db, 'halfTerms'), s => { halfTerms = s.val() || {}; populateHalfTermSelects(); renderHalfTermFields(); });
   onValue(ref(db, 'termDates'), s => {
     if (s.val()) { termDates = s.val(); }
@@ -251,9 +253,12 @@ window.openPlayerModal = function(pid) {
         <div class="modal-stat"><div class="modal-stat-val">${goals.filter(g => g.achieved).length}/${goals.length}</div><div class="modal-stat-lbl">Goals met</div></div>
       </div>
       ${trainAvg ? `<div style="font-size:13px;color:var(--text2);margin-bottom:6px;">Training avg: <strong>${trainAvg}/5</strong> &nbsp;|&nbsp; Match avg: <strong>${matchAvg || 'N/A'}/5</strong></div>` : ''}
-      <div style="margin-top:1rem;">
+      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn-primary" onclick="closeModal('modal-player');openIDPForPlayer('${pid}');">
           View full IDP
+        </button>
+        <button class="btn-secondary" onclick="document.getElementById('modal-player-content').innerHTML=renderFitnessSection('${pid}');">
+          Fitness data
         </button>
       </div>
     </div>
@@ -432,9 +437,10 @@ window.saveTrainingReport = async function() {
   });
 
   const block = document.getElementById('tr-block')?.value || '';
+  const cycle = document.getElementById('tr-cycle')?.value || '';
   const key = `${date}_${group}`;
   await set(ref(db, `training/${key}`), {
-    date, group, block,
+    date, group, block, cycle,
     coach: currentCoach.name,
     coachId: currentCoach.id,
     entries
@@ -1016,6 +1022,24 @@ window.renderIDP = function() {
               ${item.val ? `<div class="idp-bar-track"><div class="idp-bar-fill" style="width:${Math.round((parseFloat(item.val)/5)*100)}%;background:${idpBarColour(item.val)};"></div></div>` : ''}
             </div>
           `).join('')}
+          ${trainSessions.length > 0 ? (() => {
+            const byBlock = trainSessions.reduce((acc, t) => {
+              const k = t.block || '';
+              if (!acc[k]) acc[k] = 0;
+              acc[k]++;
+              return acc;
+            }, {});
+            const blockNames = {'1':'B1: Build & Progress','2':'B2: Create & Exploit','3':'B3: Final Third','4':'B4: Press & Regain','5':'B5: Defend & Transition','6':'B6: Game Control'};
+            const cycleCount = trainSessions.filter(t => t.cycle).length;
+            const c1 = trainSessions.filter(t => ['recognition','execution','application'].includes(t.cycle)).length;
+            const c2 = trainSessions.filter(t => ['execution+','application2','integration'].includes(t.cycle)).length;
+            const blockRows = Object.entries(byBlock)
+              .filter(([k]) => k)
+              .map(([k, n]) => `<span style="font-size:11px;padding:2px 7px;background:#e8f5ec;color:#0f3d1a;border-radius:4px;font-weight:600;margin-right:4px;margin-bottom:3px;display:inline-block;">${blockNames[k]||'Block '+k} &times;${n}</span>`)
+              .join('');
+            const cycleRow = (c1||c2) ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;">Cycle 1: ${c1} sessions &nbsp;|&nbsp; Cycle 2: ${c2} sessions</div>` : '';
+            return blockRows ? `<div style="margin-top:10px;">${blockRows}${cycleRow}</div>` : '';
+          })() : ''}
         </div>` : ''}
 
         ${/* MATCH: side-by-side across reviews */matchSessions.length ? `
@@ -1151,6 +1175,33 @@ window.renderIDP = function() {
         <button class="btn-secondary" onclick="emailIDPPrompt('${pid}')">Generate email</button>
       </div>
 
+      ${(() => {
+        const season = year + '/' + (year+1);
+        const fKey = `${pid}_${season.replace('/','_')}`;
+        const fd = allFitness[fKey];
+        if (!fd) return '';
+        const tests = [
+          { label: '10m sprint', base: fd.test?.sprint10, ret: fd.retest?.sprint10, unit: 's', lower: true },
+          { label: '30m sprint', base: fd.test?.sprint30, ret: fd.retest?.sprint30, unit: 's', lower: true },
+          { label: 'Yo-Yo Level 1', base: fd.test?.yoyo, ret: fd.retest?.yoyo, unit: '', lower: false },
+          { label: 'CMJ', base: fd.test?.cmj, ret: fd.retest?.cmj, unit: 'cm', lower: false }
+        ].filter(t => t.base);
+        if (!tests.length) return '';
+        return `<div class="idp-section">
+          <div class="idp-section-title">Fitness data — ${season}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px;">
+            ${tests.map(t => {
+              const diff = t.ret ? (parseFloat(t.ret) - parseFloat(t.base)) : null;
+              const improved = diff !== null ? (t.lower ? diff < 0 : diff > 0) : null;
+              return `<div style="padding:10px 12px;background:var(--bg2);border-radius:6px;">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:3px;">${t.label}</div>
+                <div style="font-size:16px;font-weight:700;color:var(--text);">${t.base}${t.unit}</div>
+                ${t.ret ? `<div style="font-size:12px;color:${improved ? '#2A8C3F' : '#C0272D'};margin-top:2px;">Retest: ${t.ret}${t.unit} (${diff > 0 ? '+' : ''}${diff?.toFixed(2)}${t.unit})</div>` : '<div style="font-size:11px;color:var(--text3);margin-top:2px;">No retest yet</div>'}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      })()}
       <div class="idp-footer">
         <span>Bognor Regis Town FC Academy &bull; ${termLabel} ${year}</span>
         <span>Confidential</span>
@@ -1164,6 +1215,23 @@ function idpBarColour(v) {
   if (n > 3.5)  return 'linear-gradient(90deg,#8a6a00,#B8922A)';
   if (n >= 2.5) return 'linear-gradient(90deg,#1a5c28,#2A8C3F)';
   return 'linear-gradient(90deg,#e07000,#f09030)';
+}
+
+function blockBadge(block, cycle) {
+  if (!block) return '';
+  const blockNames = {
+    '1':'Block 1: Build & Progress','2':'Block 2: Create & Exploit',
+    '3':'Block 3: Final Third','4':'Block 4: Press & Regain',
+    '5':'Block 5: Defend & Transition','6':'Block 6: Game Control'
+  };
+  const cycleLabels = {
+    'recognition':'Wk1 Recognition','execution':'Wk2 Execution',
+    'application':'Wk3 Application','execution+':'C2 Wk1 Exec+',
+    'application2':'C2 Wk2 Application','integration':'C2 Wk3 Integration'
+  };
+  const bName = blockNames[block] || `Block ${block}`;
+  const cName = cycle ? (cycleLabels[cycle] || cycle) : '';
+  return `<span style="display:inline-block;font-size:11px;padding:2px 7px;border-radius:4px;background:#e8f5ec;color:#0f3d1a;font-weight:600;margin-right:6px;">${bName}</span>${cName ? `<span style="display:inline-block;font-size:11px;padding:2px 7px;border-radius:4px;background:#faf0dc;color:#8a6000;font-weight:500;">${cName}</span>` : ''}`;
 }
 
 function idpBar(label, val) {
@@ -1551,6 +1619,83 @@ function resetAttendance() {
 
 function getAttendanceForPlayer(pid) {
   return attendanceState[pid] || 'present';
+}
+
+// ── FITNESS DATA ─────────────────────────────────────────────────
+window.saveFitnessData = async function(pid) {
+  const sprint10  = document.getElementById('fit-sprint10')?.value || '';
+  const sprint30  = document.getElementById('fit-sprint30')?.value || '';
+  const yoyo      = document.getElementById('fit-yoyo')?.value || '';
+  const cmj       = document.getElementById('fit-cmj')?.value || '';
+  const sprint10r = document.getElementById('fit-sprint10-retest')?.value || '';
+  const sprint30r = document.getElementById('fit-sprint30-retest')?.value || '';
+  const yoyor     = document.getElementById('fit-yoyo-retest')?.value || '';
+  const cmjr      = document.getElementById('fit-cmj-retest')?.value || '';
+  const season    = document.getElementById('fit-season')?.value || new Date().getFullYear() + '/' + (new Date().getFullYear()+1);
+  if (!pid) { toast('No player selected.'); return; }
+  const key = `${pid}_${season.replace('/','_')}`;
+  await set(ref(db, `fitness/${key}`), {
+    pid, season,
+    test:   { sprint10, sprint30, yoyo, cmj },
+    retest: { sprint10: sprint10r, sprint30: sprint30r, yoyo: yoyor, cmj: cmjr },
+    updatedAt: new Date().toISOString()
+  });
+  toast('Fitness data saved.');
+};
+
+function renderFitnessSection(pid) {
+  const season = new Date().getFullYear() + '/' + (new Date().getFullYear()+1);
+  const key = `${pid}_${season.replace('/','_')}`;
+  const f = allFitness[key] || {};
+  const p = allPlayers[pid];
+  if (!p) return '<div class="empty-state">Player not found.</div>';
+  const isU18 = p.group === 'U18';
+  const benchmarks = isU18
+    ? { sprint10: '< 1.75s', sprint30: '< 4.10s', yoyo: 'Level 17+ (1120m+)', cmj: '38cm+' }
+    : { sprint10: '< 1.85s', sprint30: '< 4.30s', yoyo: 'Level 15+ (800m+)', cmj: '30cm+' };
+
+  const testFields = [
+    { id: 'sprint10', label: '10m sprint (best of 3)', unit: 's', bench: benchmarks.sprint10 },
+    { id: 'sprint30', label: '30m sprint (best of 3)', unit: 's', bench: benchmarks.sprint30 },
+    { id: 'yoyo',     label: 'Yo-Yo Level 1 (level reached)', unit: '', bench: benchmarks.yoyo },
+    { id: 'cmj',      label: 'Counter-movement jump', unit: 'cm', bench: benchmarks.cmj }
+  ];
+
+  const fieldRow = (prefix, existing) => testFields.map(tf => `
+    <div class="form-group">
+      <label>${tf.label} ${tf.unit ? '(' + tf.unit + ')' : ''}</label>
+      <input type="text" id="fit-${prefix}${tf.id}" value="${existing?.[tf.id] || ''}" placeholder="${tf.bench}">
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Target: ${tf.bench}</div>
+    </div>`).join('');
+
+  return `
+    <div class="form-card" style="border-left:4px solid #2A8C3F;">
+      <div class="form-section-title">Fitness Testing — ${season}</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">
+        Record Week 1 baseline and Week 6 retest. Benchmarks shown are ${isU18 ? 'U18' : 'U14/U15/U16'} targets.
+      </p>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Week 1 — Baseline</div>
+      <input type="hidden" id="fit-season" value="${season}">
+      <div class="form-row">${fieldRow('', f.test || {})}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin:16px 0 10px;">Week 6 — Retest</div>
+      <div class="form-row">${fieldRow('retest-', f.retest || {})}</div>
+      ${f.test && f.retest ? `
+      <div style="margin-top:14px;padding:12px 14px;background:#e8f5ec;border-radius:6px;">
+        <div style="font-size:13px;font-weight:600;color:#0f3d1a;margin-bottom:8px;">Improvement vs baseline</div>
+        ${testFields.map(tf => {
+          const base = parseFloat(f.test?.[tf.id]);
+          const ret  = parseFloat(f.retest?.[tf.id]);
+          if (!base || !ret) return '';
+          const diff = ret - base;
+          const improved = tf.id === 'sprint10' || tf.id === 'sprint30' ? diff < 0 : diff > 0;
+          const display = (diff > 0 ? '+' : '') + diff.toFixed(2) + (tf.unit ? tf.unit : '');
+          return `<div style="font-size:12px;color:var(--text2);margin-bottom:3px;">${tf.label}: <strong style="color:${improved ? '#2A8C3F' : '#C0272D'};">${display}</strong></div>`;
+        }).join('')}
+      </div>` : ''}
+      <div class="form-actions" style="margin-top:14px;">
+        <button class="btn-primary" onclick="saveFitnessData('${pid}')">Save fitness data</button>
+      </div>
+    </div>`;
 }
 
 // ── DNA TOGGLE ───────────────────────────────────────────────────
