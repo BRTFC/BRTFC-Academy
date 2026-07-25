@@ -390,8 +390,9 @@ window.loadTrainingPlayers = function() {
         <div class="report-player-name">${p.fname} ${p.lname}</div>
         <span class="badge badge-pos">${p.pos}</span>
         <div class="attendance-btns">
-          <button class="att-btn" id="att_injured_${id}" onclick="setAttendance('${id}','injured','tr')" title="Injured">🤕</button>
-          <button class="att-btn" id="att_absent_${id}"  onclick="setAttendance('${id}','absent','tr')"  title="Absent">❌</button>
+          <button class="att-btn" id="att_injured_${id}" onclick="setAttendance('${id}','injured','tr')"     title="Injured">🤕</button>
+          <button class="att-btn" id="att_absent_${id}"  onclick="setAttendance('${id}','absent','tr')"      title="Absent">❌</button>
+          <button class="att-btn" id="att_ns_${id}"      onclick="setAttendance('${id}','notselected','tr')" title="Not Selected">🔵</button>
         </div>
       </div>
       <div class="rating-group" id="ratings_${id}">
@@ -507,8 +508,9 @@ window.loadMatchPlayers = function() {
           ${POSITIONS.map(pos => `<option ${pos === p.pos ? 'selected' : ''}>${pos}</option>`).join('')}
         </select>
         <div class="attendance-btns">
-          <button class="att-btn" id="mr_att_injured_${id}" onclick="setAttendance('${id}','injured','mr')" title="Injured">🤕</button>
-          <button class="att-btn" id="mr_att_absent_${id}"  onclick="setAttendance('${id}','absent','mr')"  title="Absent">❌</button>
+          <button class="att-btn" id="mr_att_injured_${id}" onclick="setAttendance('${id}','injured','mr')"     title="Injured">🤕</button>
+          <button class="att-btn" id="mr_att_absent_${id}"  onclick="setAttendance('${id}','absent','mr')"      title="Absent">❌</button>
+          <button class="att-btn" id="mr_att_ns_${id}"      onclick="setAttendance('${id}','notselected','mr')" title="Not Selected">🔵</button>
         </div>
       </div>
       <div class="rating-group" id="mr_ratings_${id}">
@@ -891,8 +893,9 @@ window.renderIDP = function() {
           ${attendStats && attendStats.pct < 85 ? `
           <div style="background:var(--red-light);border-left:4px solid var(--red);border-radius:var(--r-sm);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--red);">
             <strong>Attendance flag:</strong> ${attendStats.pct}% attendance this term is below the 85% threshold.
-            ${attendStats.injured ? `${attendStats.injured} session${attendStats.injured!==1?'s':''} missed through injury.` : ''}
-            ${attendStats.absent  ? `${attendStats.absent} session${attendStats.absent!==1?'s':''} absent without reason.` : ''}
+            ${attendStats.injured     ? `${attendStats.injured} session${attendStats.injured!==1?'s':''} missed through injury.` : ''}
+            ${attendStats.absent      ? `${attendStats.absent} session${attendStats.absent!==1?'s':''} absent without reason.` : ''}
+            ${attendStats.notSelected ? `${attendStats.notSelected} session${attendStats.notSelected!==1?'s':''} not selected (not counted in attendance rate).` : ''}
           </div>` : ''}
         </div>
 
@@ -904,6 +907,7 @@ window.renderIDP = function() {
             <div class="idp-metric"><div class="idp-metric-val">${attendStats.present}</div><div class="idp-metric-lbl">Present</div></div>
             <div class="idp-metric"><div class="idp-metric-val">${attendStats.injured}</div><div class="idp-metric-lbl">Injured</div></div>
             <div class="idp-metric"><div class="idp-metric-val">${attendStats.absent}</div><div class="idp-metric-lbl">Absent</div></div>
+            ${attendStats.notSelected ? `<div class="idp-metric"><div class="idp-metric-val" style="color:var(--text2);">${attendStats.notSelected}</div><div class="idp-metric-lbl">Not Selected</div></div>` : ''}
           </div>
           <div class="idp-bar-row">
             <div class="idp-bar-labels"><span>Attendance</span><span>${attendStats.pct}%</span></div>
@@ -1668,7 +1672,7 @@ window.saveTermDates = async function() {
 };
 
 // ── ATTENDANCE ───────────────────────────────────────────────────
-const attendanceState = {}; // pid -> 'present'|'injured'|'absent'
+const attendanceState = {}; // pid -> 'present'|'injured'|'absent'|'notselected'
 
 window.setAttendance = function(pid, status, prefix) {
   const current = attendanceState[pid] || 'present';
@@ -1679,17 +1683,20 @@ window.setAttendance = function(pid, status, prefix) {
   const rowId    = prefix === 'tr' ? `row_${pid}`        : `mr_row_${pid}`;
   const injBtnId = prefix === 'tr' ? `att_injured_${pid}` : `mr_att_injured_${pid}`;
   const absBtnId = prefix === 'tr' ? `att_absent_${pid}`  : `mr_att_absent_${pid}`;
+  const nsBtnId  = prefix === 'tr' ? `att_ns_${pid}`      : `mr_att_ns_${pid}`;
   const ratingsId = prefix === 'tr' ? `ratings_${pid}`    : `mr_ratings_${pid}`;
 
   const row     = document.getElementById(rowId);
   const injBtn  = document.getElementById(injBtnId);
   const absBtn  = document.getElementById(absBtnId);
+  const nsBtn   = document.getElementById(nsBtnId);
   const ratings = document.getElementById(ratingsId);
 
-  // Reset button states
+  // Reset all button states
   if (injBtn) injBtn.classList.remove('att-active-injured');
   if (absBtn) absBtn.classList.remove('att-active-absent');
-  if (row)    row.classList.remove('att-row-injured','att-row-absent');
+  if (nsBtn)  nsBtn.classList.remove('att-active-ns');
+  if (row)    row.classList.remove('att-row-injured','att-row-absent','att-row-ns');
   if (ratings) ratings.style.opacity = '1';
   if (ratings) ratings.style.pointerEvents = 'auto';
 
@@ -1700,6 +1707,10 @@ window.setAttendance = function(pid, status, prefix) {
   } else if (newStatus === 'absent') {
     if (absBtn) absBtn.classList.add('att-active-absent');
     if (row)    row.classList.add('att-row-absent');
+    if (ratings) { ratings.style.opacity = '0.3'; ratings.style.pointerEvents = 'none'; }
+  } else if (newStatus === 'notselected') {
+    if (nsBtn)  nsBtn.classList.add('att-active-ns');
+    if (row)    row.classList.add('att-row-ns');
     if (ratings) { ratings.style.opacity = '0.3'; ratings.style.pointerEvents = 'none'; }
   }
 };
@@ -1879,12 +1890,15 @@ function getPlayerAttendanceStats(pid) {
   const total    = allSessions.length;
   if (!total) return null;
 
-  const present  = allSessions.filter(s => !s.entries[pid].attendance || s.entries[pid].attendance === 'present').length;
-  const injured  = allSessions.filter(s => s.entries[pid].attendance === 'injured').length;
-  const absent   = allSessions.filter(s => s.entries[pid].attendance === 'absent').length;
-  const pct      = Math.round((present / total) * 100);
+  const notSelected = allSessions.filter(s => s.entries[pid].attendance === 'notselected').length;
+  // Not Selected sessions are excluded from attendance calculation entirely
+  const countable   = total - notSelected;
+  const present     = allSessions.filter(s => !s.entries[pid].attendance || s.entries[pid].attendance === 'present').length;
+  const injured     = allSessions.filter(s => s.entries[pid].attendance === 'injured').length;
+  const absent      = allSessions.filter(s => s.entries[pid].attendance === 'absent').length;
+  const pct         = countable > 0 ? Math.round((present / countable) * 100) : 100;
 
-  return { total, present, injured, absent, pct };
+  return { total, countable, present, injured, absent, notSelected, pct };
 }
 
 function getPlayerOverallAvg(pid) {
