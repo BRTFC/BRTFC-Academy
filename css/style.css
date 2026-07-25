@@ -1017,8 +1017,10 @@ textarea { min-height: 88px; resize: vertical; }
 .att-btn:active { transform: scale(0.92); }
 .att-active-injured { background: var(--amber-light); border-color: var(--amber); }
 .att-active-absent  { background: var(--red-light);   border-color: var(--red); }
+.att-active-ns      { background: #e8edf5;             border-color: #5b7bbd; }
 .att-row-injured { border-color: var(--amber); background: var(--amber-light); }
 .att-row-absent  { border-color: var(--red);   background: var(--red-light); }
+.att-row-ns      { border-color: #5b7bbd;      background: #f0f3f9; opacity: 0.75; }
 
 /* ── SQUAD INSIGHTS ──────────────────────────── */
 .insights-controls { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
