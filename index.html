@@ -50,6 +50,7 @@
     <button class="nav-btn hidden" data-view="dashboard" onclick="switchView('dashboard',this)">Dashboard</button>
     <button class="nav-btn hidden" data-view="insights" onclick="switchView('insights',this)">Insights</button>
     <button class="nav-btn hidden" data-view="potential" onclick="switchView('potential',this)">Potential</button>
+    <button class="nav-btn hidden" data-view="fitness" onclick="switchView('fitness',this)">Fitness</button>
   </nav>
 
   <main class="app-main">
@@ -405,9 +406,23 @@
 
       <!-- IMPORT TAB -->
       <div id="admin-import" class="admin-panel hidden">
-        <div class="form-card">
+
+        <div class="form-card" style="border-left:4px solid #2A8C3F;">
+          <div class="form-section-title">Import from CSV file</div>
+          <p class="help-text">Download your Google Sheet as a CSV (File &rarr; Download &rarr; CSV) and upload it here. Required columns: FirstName, LastName, DOB (YYYY-MM-DD), AgeGroup, Position. Optional: Position2, PlayerEmail, ParentEmail. Players already in the system will be skipped.</p>
+          <div class="form-group">
+            <label>Select CSV file</label>
+            <input type="file" id="import-csv-file" accept=".csv" style="padding:8px 0;">
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="importFromCSV()">Import from CSV</button>
+          </div>
+          <div id="import-csv-status" class="status-msg"></div>
+        </div>
+
+        <div class="form-card" style="margin-top:16px;">
           <div class="form-section-title">Import from Google Sheets</div>
-          <p class="help-text">Your sheet must have headers in row 1 and player data from row 2. Required columns: FirstName, LastName, DOB (YYYY-MM-DD), AgeGroup, Position. Optional: PlayerEmail, ParentEmail.</p>
+          <p class="help-text">Alternatively, connect directly to a Google Sheet using a Sheet ID and API key.</p>
           <div class="form-group"><label>Google Sheet ID</label>
             <input type="text" id="import-sheet-id" placeholder="Paste Sheet ID here">
           </div>
@@ -415,7 +430,7 @@
             <input type="password" id="import-api-key" placeholder="Paste API key here">
           </div>
           <div class="btn-row">
-            <button class="btn-primary" onclick="importFromSheets()">Import players</button>
+            <button class="btn-primary" onclick="importFromSheets()">Import from Sheets</button>
             <button class="btn-secondary" onclick="saveImportConfig()">Save config</button>
           </div>
           <div id="import-status" class="status-msg"></div>
@@ -679,6 +694,41 @@
       <div id="edit-player-status" class="status-msg"></div>
     </div>
   </div>
+
+    <!-- FITNESS TESTING -->
+    <div id="view-fitness" class="view hidden">
+      <div class="view-header">
+        <div class="page-title">Fitness Testing</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px;">Preseason Week 1 baseline and Week 6 retest. Results saved per player per season.</div>
+      </div>
+      <div class="form-card">
+        <div class="form-section-title">Select player</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="fit-group" onchange="loadFitnessPlayers()">
+              <option value="">Select group...</option>
+              <option>U14</option><option>U15</option><option>U16</option><option>U18</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Player</label>
+            <select id="fit-player" onchange="loadFitnessForm()">
+              <option value="">Select player...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Season</label>
+            <select id="fit-season-sel" onchange="loadFitnessForm()">
+              <option value="2026/2027">2026/2027</option>
+              <option value="2025/2026">2025/2026</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="fit-form-container"></div>
+    </div>
+
 </div>
 
 <!-- PLAYER PROFILE MODAL -->
