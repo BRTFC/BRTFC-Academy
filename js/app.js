@@ -1,4 +1,5 @@
-import { db, ref, set, get, push, update, remove, onValue, child }
+import { db, auth, ref, set, get, push, update, remove, onValue, child,
+         signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged }
   from './firebase.js';
 
 // ── STATE ────────────────────────────────────────────────────────
@@ -58,9 +59,26 @@ function canAccessNav(view) {
 window.addEventListener('DOMContentLoaded', () => {
   setTodayDates();
   initTheme();
-  listenData();
 
-  document.getElementById('login-pin').addEventListener('keydown', e => {
+  // Listen for Firebase Auth state changes
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      // User is signed in — find their coach record by email
+      listenData();
+      await resolveCoachFromEmail(user.email);
+    } else {
+      // Not signed in — show login screen
+      currentCoach = null;
+      document.getElementById('screen-app')?.classList.add('hidden');
+      document.getElementById('screen-login')?.classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.add('hidden'));
+    }
+  });
+
+  document.getElementById('login-email')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-password')?.focus();
+  });
+  document.getElementById('login-password')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
 });
@@ -93,44 +111,97 @@ function listenData() {
 }
 
 // ── AUTH ─────────────────────────────────────────────────────────
-window.doLogin = function() {
-  const pin = document.getElementById('login-pin').value.trim();
-  if (!pin) return;
+window.doLogin = async function() {
+  const email    = document.getElementById('login-email')?.value.trim();
+  const password = document.getElementById('login-password')?.value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
 
-  const coach = Object.entries(allCoaches).find(([id, c]) => String(c.pin) === String(pin));
+  if (!email || !password) {
+    if (errEl) errEl.textContent = 'Please enter your email and password.';
+    return;
+  }
+  if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
+  if (errEl) errEl.textContent = '';
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged will handle the rest
+    if (document.getElementById('login-password')) document.getElementById('login-password').value = '';
+  } catch(err) {
+    let msg = 'Sign in failed. Check your email and password.';
+    if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      msg = 'Incorrect email or password.';
+    } else if (err.code === 'auth/too-many-requests') {
+      msg = 'Too many attempts. Try again in a few minutes.';
+    }
+    if (errEl) errEl.textContent = msg;
+    if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; }
+  }
+};
+
+window.doPasswordReset = async function() {
+  const email = document.getElementById('login-email')?.value.trim();
+  const errEl = document.getElementById('login-error');
+  if (!email) {
+    if (errEl) errEl.textContent = 'Enter your email address first, then click Forgot password.';
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    if (errEl) { errEl.style.color = 'var(--green)'; errEl.textContent = `Password reset email sent to ${email}.`; }
+  } catch(err) {
+    if (errEl) errEl.textContent = 'Could not send reset email. Check the address is correct.';
+  }
+};
+
+async function resolveCoachFromEmail(email) {
+  // Wait for coaches data to be available
+  let attempts = 0;
+  while (Object.keys(allCoaches).length === 0 && attempts < 20) {
+    await new Promise(r => setTimeout(r, 250));
+    attempts++;
+  }
+
+  const coach = Object.entries(allCoaches).find(([id, c]) =>
+    c.email && c.email.toLowerCase().trim() === email.toLowerCase().trim()
+  );
+
   if (!coach) {
-    document.getElementById('login-error').textContent = 'Incorrect PIN. Try again.';
-    document.getElementById('login-pin').value = '';
+    // Email authenticated but no matching coach record
+    document.getElementById('login-error').textContent =
+      'Account found but no coach profile linked to ' + email + '. Contact your administrator.';
+    document.getElementById('screen-login').classList.remove('hidden');
+    document.getElementById('screen-app').classList.add('hidden');
+    await signOut(auth);
     return;
   }
 
   currentCoach = { id: coach[0], ...coach[1] };
-  document.getElementById('login-pin').value = '';
   document.getElementById('login-error').textContent = '';
-  document.getElementById('header-coach-name').textContent = currentCoach.name;
+  const nameEl = document.getElementById('header-coach-name');
+  if (nameEl) nameEl.textContent = currentCoach.name;
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) { loginBtn.textContent = 'Sign in'; loginBtn.disabled = false; }
 
-  // Show only permitted nav items based on role
-  const navViews = ['players','training','match','monthly','idp','admin','dashboard','insights','potential'];
+  // Show permitted nav items
+  const navViews = ['players','training','match','monthly','idp','admin','dashboard','insights','potential','fitness'];
   navViews.forEach(v => {
     const btn = document.querySelector(`[data-view="${v}"]`);
     if (!btn) return;
-    if (canAccessNav(v)) {
-      btn.classList.remove('hidden');
-    } else {
-      btn.classList.add('hidden');
-    }
+    if (canAccessNav(v)) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
   });
 
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-app').classList.remove('hidden');
 
-  // Managers land on match tab, others on players
   if (isManager()) {
     switchView('match', document.querySelector('[data-view="match"]'));
   } else {
     renderPlayersView();
   }
-};
+}
 
 // ── THEME ─────────────────────────────────────────────────────────
 window.toggleTheme = function() {
@@ -148,12 +219,10 @@ function initTheme() {
   if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
 }
 
-window.doLogout = function() {
+window.doLogout = async function() {
   currentCoach = null;
-  document.getElementById('screen-app').classList.add('hidden');
-  document.getElementById('screen-login').classList.remove('hidden');
-  // Hide all nav buttons ready for next login
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.add('hidden'));
+  await signOut(auth);
+  // onAuthStateChanged handles the rest
 };
 
 // ── VIEW SWITCHING ────────────────────────────────────────────────
@@ -1299,19 +1368,19 @@ window.switchAdminTab = function(tab, btn) {
 
 window.addCoach = async function() {
   const name      = document.getElementById('ac-name').value.trim();
-  const pin       = document.getElementById('ac-pin').value.trim();
+  const email     = document.getElementById('ac-email').value.trim().toLowerCase();
   const role      = document.getElementById('ac-role').value.trim();
   const role_type = document.getElementById('ac-role-type').value;
   const phase     = document.getElementById('ac-phase').value;
   const ageGroup  = document.getElementById('ac-agegroup').value;
   const admin     = document.getElementById('ac-admin').value === 'true';
-  if (!name || !pin) { setStatus('coach-status', 'Name and PIN are required.', false); return; }
-  if (pin.length < 4) { setStatus('coach-status', 'PIN must be at least 4 digits.', false); return; }
-  const exists = Object.values(allCoaches).find(c => String(c.pin) === String(pin));
-  if (exists) { setStatus('coach-status', 'That PIN is already in use.', false); return; }
-  await push(ref(db, 'coaches'), { name, pin, role, role_type, phase, ageGroup, admin });
-  ['ac-name','ac-pin','ac-role'].forEach(id => document.getElementById(id).value = '');
-  setStatus('coach-status', `Coach ${name} added.`, true);
+  if (!name || !email) { setStatus('coach-status', 'Name and email are required.', false); return; }
+  if (!email.includes('@')) { setStatus('coach-status', 'Please enter a valid email address.', false); return; }
+  const exists = Object.values(allCoaches).find(c => c.email && c.email.toLowerCase() === email);
+  if (exists) { setStatus('coach-status', 'A coach with that email already exists.', false); return; }
+  await push(ref(db, 'coaches'), { name, email, role, role_type, phase, ageGroup, admin });
+  ['ac-name','ac-email','ac-role'].forEach(id => document.getElementById(id) && (document.getElementById(id).value = ''));
+  setStatus('coach-status', `Coach ${name} added. Remember to create their Firebase Auth account with ${email}.`, true);
 };
 
 function renderCoachesList() {
@@ -1328,8 +1397,16 @@ function renderCoachesList() {
           ${c.role || ''}
           ${c.role_type === 'manager' && c.ageGroup ? '&bull; ' + c.ageGroup : c.phase ? '&bull; Phase ' + (c.phase === '1' ? '1 (U14/U15)' : c.phase === '2' ? '2 (U16/U18)' : 'All') : ''}
         </div>
+        <div class="data-row-sub" style="margin-top:2px;">
+          ${c.email
+            ? `<span style="font-size:12px;color:var(--green-dark);">&#10003; ${c.email}</span>`
+            : `<span style="font-size:12px;color:var(--red);">&#9888; No email set — coach cannot log in</span>`}
+        </div>
       </div>
-      <button class="btn-danger" onclick="removeCoach('${id}','${c.name}')">Remove</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-secondary" onclick="editCoachEmail('${id}','${c.email || ''}','${c.name}')">Edit email</button>
+        <button class="btn-danger" onclick="removeCoach('${id}','${c.name}')">Remove</button>
+      </div>
     </div>
   `).join('');
 }
@@ -1337,6 +1414,16 @@ function renderCoachesList() {
 window.removeCoach = async function(id, name) {
   if (!confirm(`Remove ${name}?`)) return;
   await remove(ref(db, `coaches/${id}`));
+};
+
+window.editCoachEmail = function(id, currentEmail, name) {
+  const newEmail = prompt(`Update email for ${name}:`, currentEmail);
+  if (newEmail === null) return; // cancelled
+  const email = newEmail.trim().toLowerCase();
+  if (!email || !email.includes('@')) { alert('Please enter a valid email address.'); return; }
+  update(ref(db, `coaches/${id}`), { email })
+    .then(() => toast(`Email updated for ${name}. Make sure their Firebase Auth account uses ${email}.`))
+    .catch(err => toast('Error: ' + err.message));
 };
 
 window.addPlayerManual = async function() {
