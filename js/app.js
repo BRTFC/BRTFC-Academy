@@ -19,7 +19,7 @@ let termDates    = {
 };
 let activePlayerFilter = 'all';
 
-const POSITIONS = ['GK','CB','RB','LB','CDM','CM','CAM','RW','LW','ST'];
+const POSITIONS = ['GK','CB','RB','LB','CDM','CM','CAM','RW','LW','CF','ST'];
 
 function generatePlayerPIN() {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -168,6 +168,7 @@ window.switchView = function(v, btn) {
   if (btn) btn.classList.add('active');
 
   if (v === 'training')  initTrainingView();
+  if (v === 'fitness')   initFitnessView();
   if (v === 'match')     initMatchView();
   if (v === 'monthly')   initMonthlyView();
   if (v === 'admin')     renderAdminPlayers();
@@ -257,7 +258,7 @@ window.openPlayerModal = function(pid) {
         <button class="btn-primary" onclick="closeModal('modal-player');openIDPForPlayer('${pid}');">
           View full IDP
         </button>
-        <button class="btn-secondary" onclick="document.getElementById('modal-player-content').innerHTML=renderFitnessSection('${pid}');">
+        <button class="btn-secondary" onclick="closeModal('modal-player');switchView('fitness',document.querySelector('[data-view=fitness]'));setTimeout(()=>{const g=allPlayers['${pid}']?.group;if(g){document.getElementById('fit-group').value=g;loadFitnessPlayers();setTimeout(()=>{document.getElementById('fit-player').value='${pid}';loadFitnessForm();},200);}},100);">
           Fitness data
         </button>
       </div>
@@ -1487,10 +1488,12 @@ window.importFromSheets = async function() {
       );
       if (exists) { skipped++; continue; }
       const validGroups = ['U14','U15','U16','U18'];
+      const pos2 = (row[7] || '').trim();
       await push(ref(db, 'players'), {
         fname, lname, dob,
         group:    validGroups.includes(group) ? group : 'U16',
         pos:      POSITIONS.includes(pos) ? pos : 'CM',
+        pos2:     POSITIONS.includes(pos2) ? pos2 : '',
         email, pemail,
         playerPin: generatePlayerPIN()
       });
@@ -1500,6 +1503,94 @@ window.importFromSheets = async function() {
   } catch(err) {
     setStatus('import-status', `Error: ${err.message}`, false);
   }
+};
+
+window.importFromCSV = async function() {
+  const fileInput = document.getElementById('import-csv-file');
+  if (!fileInput || !fileInput.files.length) {
+    setStatus('import-csv-status', 'Please select a CSV file first.', false);
+    return;
+  }
+  const file = fileInput.files[0];
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) { setStatus('import-csv-status', 'File is empty.', false); return; }
+
+  // Parse header
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g,''));
+  const getCol  = (name) => headers.indexOf(name);
+
+  const iFirst  = getCol('firstname');
+  const iLast   = getCol('lastname');
+  const iDob    = getCol('dob');
+  const iGroup  = getCol('agegroup');
+  const iPos    = getCol('position');
+  const iPos2   = getCol('position2');
+  const iEmail  = getCol('playeremail');
+  const iPEmail = getCol('parentemail');
+
+  if (iFirst === -1 || iLast === -1) {
+    setStatus('import-csv-status', 'Could not find FirstName/LastName columns. Check the CSV header row.', false);
+    return;
+  }
+
+  // Parse rows — handle quoted fields with commas
+  function parseCSVLine(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  const validGroups = ['U14','U15','U16','U18'];
+  let added = 0, skipped = 0, errors = [];
+
+  setStatus('import-csv-status', 'Importing...', true);
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseCSVLine(lines[i]);
+    const fname  = iFirst  >= 0 ? (row[iFirst]  || '').replace(/['"]/g,'').trim() : '';
+    const lname  = iLast   >= 0 ? (row[iLast]   || '').replace(/['"]/g,'').trim() : '';
+    const dob    = iDob    >= 0 ? (row[iDob]    || '').replace(/['"]/g,'').trim() : '';
+    const group  = iGroup  >= 0 ? (row[iGroup]  || '').replace(/['"]/g,'').trim() : '';
+    const pos    = iPos    >= 0 ? (row[iPos]    || '').replace(/['"]/g,'').trim() : '';
+    const pos2   = iPos2   >= 0 ? (row[iPos2]   || '').replace(/['"]/g,'').trim() : '';
+    const email  = iEmail  >= 0 ? (row[iEmail]  || '').replace(/['"]/g,'').trim() : '';
+    const pemail = iPEmail >= 0 ? (row[iPEmail] || '').replace(/['"]/g,'').trim() : '';
+
+    if (!fname || !lname) { skipped++; continue; }
+
+    const exists = Object.values(allPlayers).find(p =>
+      p.fname.toLowerCase() === fname.toLowerCase() &&
+      p.lname.toLowerCase() === lname.toLowerCase()
+    );
+    if (exists) { skipped++; continue; }
+
+    try {
+      await push(ref(db, 'players'), {
+        fname, lname, dob,
+        group:    validGroups.includes(group) ? group : 'U14',
+        pos:      POSITIONS.includes(pos) ? pos : 'CM',
+        pos2:     POSITIONS.includes(pos2) ? pos2 : '',
+        email, pemail,
+        playerPin: generatePlayerPIN()
+      });
+      added++;
+    } catch(err) {
+      errors.push(`${fname} ${lname}: ${err.message}`);
+    }
+  }
+
+  let msg = `${added} player${added !== 1 ? 's' : ''} imported`;
+  if (skipped) msg += `, ${skipped} skipped (already exist or blank)`;
+  if (errors.length) msg += `. Errors: ${errors.join(', ')}`;
+  setStatus('import-csv-status', msg, errors.length === 0);
 };
 
 function renderHalfTermFields() {
@@ -1631,7 +1722,7 @@ window.saveFitnessData = async function(pid) {
   const sprint30r = document.getElementById('fit-sprint30-retest')?.value || '';
   const yoyor     = document.getElementById('fit-yoyo-retest')?.value || '';
   const cmjr      = document.getElementById('fit-cmj-retest')?.value || '';
-  const season    = document.getElementById('fit-season')?.value || new Date().getFullYear() + '/' + (new Date().getFullYear()+1);
+  const season    = document.getElementById('fit-season-sel')?.value || document.getElementById('fit-season')?.value || new Date().getFullYear() + '/' + (new Date().getFullYear()+1);
   if (!pid) { toast('No player selected.'); return; }
   const key = `${pid}_${season.replace('/','_')}`;
   await set(ref(db, `fitness/${key}`), {
@@ -1643,8 +1734,42 @@ window.saveFitnessData = async function(pid) {
   toast('Fitness data saved.');
 };
 
-function renderFitnessSection(pid) {
-  const season = new Date().getFullYear() + '/' + (new Date().getFullYear()+1);
+function initFitnessView() {
+  const grpSel = document.getElementById('fit-group');
+  const groups = coachPhaseGroups ? coachPhaseGroups() : ['U14','U15','U16','U18'];
+  if (grpSel) {
+    grpSel.innerHTML = '<option value="">Select group...</option>' +
+      groups.map(g => `<option>${g}</option>`).join('');
+  }
+  loadFitnessPlayers();
+}
+
+window.loadFitnessPlayers = function() {
+  const group = document.getElementById('fit-group')?.value;
+  const sel   = document.getElementById('fit-player');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select player...</option>';
+  document.getElementById('fit-form-container').innerHTML = '';
+  if (!group) return;
+  Object.entries(allPlayers)
+    .filter(([id, p]) => p.group === group)
+    .sort((a, b) => a[1].lname.localeCompare(b[1].lname))
+    .forEach(([id, p]) => {
+      sel.innerHTML += `<option value="${id}">${p.fname} ${p.lname}</option>`;
+    });
+};
+
+window.loadFitnessForm = function() {
+  const pid    = document.getElementById('fit-player')?.value;
+  const season = document.getElementById('fit-season-sel')?.value || (new Date().getFullYear() + '/' + (new Date().getFullYear()+1));
+  const container = document.getElementById('fit-form-container');
+  if (!container) return;
+  if (!pid) { container.innerHTML = ''; return; }
+  container.innerHTML = renderFitnessSection(pid, season);
+};
+
+function renderFitnessSection(pid, season) {
+  season = season || (new Date().getFullYear() + '/' + (new Date().getFullYear()+1));
   const key = `${pid}_${season.replace('/','_')}`;
   const f = allFitness[key] || {};
   const p = allPlayers[pid];
