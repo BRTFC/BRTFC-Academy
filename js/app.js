@@ -991,102 +991,193 @@ window.renderIDP = function() {
           </div>
         </div>` : ''}
 
-        ${/* SEASON PROGRESSION CHART - all three terms */`
+        ${/* SEASON PROGRESSION CHART - weekly data points */`
         <div class="idp-section">
           <div class="idp-section-title">Season progression</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Average scores across all three terms. Only terms with data are plotted.</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Weekly averages across the season. Each point is the average of all sessions in that week. Training metrics are solid lines, match metrics are dashed.</div>
           ${(function() {
-            const TERM_LABELS = { '1': 'Term 1', '2': 'Term 2', '3': 'Term 3' };
             const METRICS = [
-              { label: 'Attitude',      colour: '#2A8C3F', getData: (tr,mt) => tr.map(t => t.entries[pid]?.attitude) },
-              { label: 'Communication', colour: '#185fa5', getData: (tr,mt) => tr.map(t => t.entries[pid]?.communication) },
-              { label: 'Performance',   colour: '#B8922A', getData: (tr,mt) => tr.map(t => t.entries[pid]?.performance) },
-              { label: 'Mindset',       colour: '#ef9f27', getData: (tr,mt) => mt.map(m => m.entries[pid]?.mindset) },
-              { label: 'Physical',      colour: '#C0272D', getData: (tr,mt) => mt.map(m => m.entries[pid]?.physical) },
-              { label: 'Impact',        colour: '#7b2d8b', getData: (tr,mt) => mt.map(m => m.entries[pid]?.impact) }
+              { label: 'Attitude',      colour: '#2A8C3F', type: 'training', key: 'attitude' },
+              { label: 'Communication', colour: '#185fa5', type: 'training', key: 'communication' },
+              { label: 'Performance',   colour: '#B8922A', type: 'training', key: 'performance' },
+              { label: 'Mindset',       colour: '#ef9f27', type: 'match',    key: 'mindset' },
+              { label: 'Physical',      colour: '#C0272D', type: 'match',    key: 'physical' },
+              { label: 'Impact',        colour: '#7b2d8b', type: 'match',    key: 'impact' }
             ];
 
-            // Build data per term per metric
-            const termData = [1,2,3].map(tn => {
-              const range = getTermRange(tn);
-              const tr = Object.values(allTraining).filter(t =>
-                t.entries?.[pid] && inTermRange(t.date, range) &&
-                (!t.entries[pid].attendance || t.entries[pid].attendance === 'present')
-              );
-              const mt = Object.values(allMatches).filter(m =>
-                m.entries?.[pid] && inTermRange(m.date, range) &&
-                (!m.entries[pid].attendance || m.entries[pid].attendance === 'present')
-              );
-              return { label: TERM_LABELS[tn], tr, mt, hasData: tr.length > 0 || mt.length > 0 };
+            // Get all sessions for this player across the full season, sorted by date
+            const allSess = [
+              ...Object.values(allTraining)
+                .filter(t => t.entries?.[pid] && t.date &&
+                  (!t.entries[pid].attendance || t.entries[pid].attendance === 'present'))
+                .map(t => ({ date: t.date, type: 'training', entry: t.entries[pid] })),
+              ...Object.values(allMatches)
+                .filter(m => m.entries?.[pid] && m.date &&
+                  (!m.entries[pid].attendance || m.entries[pid].attendance === 'present'))
+                .map(m => ({ date: m.date, type: 'match', entry: m.entries[pid] }))
+            ].sort((a, b) => a.date.localeCompare(b.date));
+
+            if (!allSess.length) return '<div style="font-size:13px;color:var(--text3);">No data yet. Scores will appear here as the season progresses.</div>';
+
+            // Group sessions into 3-week blocks
+            // Get the season start date from term 1
+            const term1Range = getTermRange(1);
+            const seasonStart = new Date(term1Range.start);
+
+            // Get week number relative to season start
+            const getWeekNum = (dateStr) => {
+              const d = new Date(dateStr);
+              const diff = d - seasonStart;
+              return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
+            };
+
+            // Group into 3-week buckets
+            const buckets = {};
+            allSess.forEach(s => {
+              const wk = getWeekNum(s.date);
+              const bucket = Math.floor(wk / 3); // 3-week bucket
+              if (!buckets[bucket]) buckets[bucket] = { training: [], match: [], weekStart: wk };
+              buckets[bucket][s.type].push(s);
             });
 
-            const activeTerms = termData.filter(t => t.hasData);
-            if (activeTerms.length < 1) return '<div style="font-size:13px;color:var(--text3);">No data across terms yet. Scores will appear here as the season progresses.</div>';
+            const sortedBuckets = Object.entries(buckets)
+              .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+              .map(([bucketIdx, data]) => ({
+                bucketIdx: parseInt(bucketIdx),
+                ...data
+              }));
 
-            // SVG chart
-            const W = 560, H = 180, PAD_L = 60, PAD_R = 20, PAD_T = 16, PAD_B = 32;
+            if (!sortedBuckets.length) return '<div style="font-size:13px;color:var(--text3);">No data yet.</div>';
+
+            // Calculate term boundaries for shading
+            const term2Range = getTermRange(2);
+            const term3Range = getTermRange(3);
+
+            const term1End   = new Date(term1Range.end);
+            const term2Start = new Date(term2Range.start);
+            const term2End   = new Date(term2Range.end);
+            const term3Start = new Date(term3Range.start);
+
+            const getTerm = (dateStr) => {
+              const d = new Date(dateStr);
+              if (d <= term1End) return 1;
+              if (d >= term2Start && d <= term2End) return 2;
+              return 3;
+            };
+
+            // SVG dimensions
+            const W = 580, H = 220, PAD_L = 36, PAD_R = 16, PAD_T = 20, PAD_B = 48;
             const chartW = W - PAD_L - PAD_R;
             const chartH = H - PAD_T - PAD_B;
-            const xPositions = [1,2,3].map((_, i) => PAD_L + (i / 2) * chartW);
+            const n = sortedBuckets.length;
             const valY = v => PAD_T + chartH - ((parseFloat(v) - 1) / 4) * chartH;
+            const bucketX = i => PAD_L + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW);
 
-            let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;" xmlns="http://www.w3.org/2000/svg">`;
+            let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible;" xmlns="http://www.w3.org/2000/svg">`;
+
+            // Background term shading
+            // Determine x position for each bucket by its first session date
+            const firstDate = (b) => {
+              const sessions = [...b.training, ...b.match];
+              return sessions.length ? sessions[0].date : null;
+            };
+
+            // Shade term bands based on bucket positions
+            let lastTerm = null;
+            let termStartX = PAD_L;
+            sortedBuckets.forEach((b, i) => {
+              const fd = firstDate(b);
+              const term = fd ? getTerm(fd) : null;
+              if (term && term !== lastTerm) {
+                if (lastTerm !== null) {
+                  // End of previous term band
+                }
+                lastTerm = term;
+                termStartX = bucketX(i);
+              }
+            });
+
+            // Draw term labels at top
+            const termColors = { 1: '#e8f5ec', 2: '#faf0dc', 3: '#e8edf5' };
+            const termTextColors = { 1: '#0f3d1a', 2: '#8a6000', 3: '#1a2a4a' };
+            let curTerm = null, termXStart = PAD_L;
+            sortedBuckets.forEach((b, i) => {
+              const fd = firstDate(b);
+              const term = fd ? getTerm(fd) : curTerm;
+              if (term !== curTerm) {
+                if (curTerm !== null) {
+                  const endX = bucketX(i);
+                  svg += `<rect x="${termXStart}" y="${PAD_T}" width="${endX - termXStart}" height="${chartH}" fill="${termColors[curTerm]}" opacity="0.4"/>`;
+                  const midX = (termXStart + endX) / 2;
+                  svg += `<text x="${midX}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="${termTextColors[curTerm]}">Term ${curTerm}</text>`;
+                }
+                curTerm = term;
+                termXStart = bucketX(i);
+              }
+            });
+            // Last term band
+            if (curTerm !== null) {
+              const endX = bucketX(n - 1) + (n > 1 ? 0 : chartW / 2);
+              svg += `<rect x="${termXStart}" y="${PAD_T}" width="${Math.min(endX + 20, W - PAD_R) - termXStart}" height="${chartH}" fill="${termColors[curTerm]}" opacity="0.4"/>`;
+              const midX = (termXStart + Math.min(endX + 20, W - PAD_R)) / 2;
+              svg += `<text x="${midX}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="${termTextColors[curTerm]}">Term ${curTerm}</text>`;
+            }
 
             // Grid lines and Y labels
             [1,2,3,4,5].forEach(v => {
               const y = valY(v);
-              svg += `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="${v === 1 || v === 5 ? 'none' : '3,3'}"/>`;
-              svg += `<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text3)">${v}</text>`;
+              svg += `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="var(--border)" stroke-width="${v===1||v===5?1.5:1}" stroke-dasharray="${v===1||v===5?'none':'3,3'}"/>`;
+              svg += `<text x="${PAD_L - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text3)">${v}</text>`;
             });
 
-            // X axis term labels
-            [0,1,2].forEach(i => {
-              svg += `<text x="${xPositions[i]}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text2)">Term ${i+1}</text>`;
-            });
-
-            // Shade terms without data
-            termData.forEach((td, i) => {
-              if (!td.hasData) {
-                svg += `<rect x="${xPositions[i] - chartW/4}" y="${PAD_T}" width="${chartW/2}" height="${chartH}" fill="var(--bg3)" opacity="0.5"/>`;
-              }
+            // 3-week block labels on X axis (Block 1, Block 2...)
+            sortedBuckets.forEach((b, i) => {
+              const blockNum = b.bucketIdx + 1;
+              svg += `<text x="${bucketX(i)}" y="${H - 20}" text-anchor="middle" font-size="9" fill="var(--text3)">Wk${b.weekStart+1}-${b.weekStart+3}</text>`;
             });
 
             // Plot each metric
             METRICS.forEach(metric => {
-              const points = termData.map((td, i) => {
-                const vals = metric.getData(td.tr, td.mt)
-                  .map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
-                const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
-                return avg ? { x: xPositions[i], y: valY(avg), v: avg } : null;
+              const points = sortedBuckets.map((b, i) => {
+                const sessions = b[metric.type];
+                const vals = sessions
+                  .map(s => parseFloat(s.entry?.[metric.key]))
+                  .filter(v => !isNaN(v) && v > 0);
+                const avg = vals.length ? vals.reduce((a,v)=>a+v,0)/vals.length : null;
+                return avg !== null ? { x: bucketX(i), y: valY(avg), v: avg } : null;
               });
 
               const valid = points.filter(Boolean);
               if (!valid.length) return;
 
-              // Draw connecting line
-              if (valid.length > 1) {
-                for (let i = 0; i < valid.length - 1; i++) {
-                  svg += `<line x1="${valid[i].x}" y1="${valid[i].y}" x2="${valid[i+1].x}" y2="${valid[i+1].y}" stroke="${metric.colour}" stroke-width="2.5" stroke-linecap="round"/>`;
-                }
+              const dash = metric.type === 'match' ? 'stroke-dasharray="5,3"' : '';
+
+              // Connecting lines
+              for (let i = 0; i < valid.length - 1; i++) {
+                svg += `<line x1="${valid[i].x}" y1="${valid[i].y}" x2="${valid[i+1].x}" y2="${valid[i+1].y}" stroke="${metric.colour}" stroke-width="2" stroke-linecap="round" ${dash}/>`;
               }
 
-              // Draw dots and value labels
-              valid.forEach(pt => {
-                svg += `<circle cx="${pt.x}" cy="${pt.y}" r="5" fill="${metric.colour}" stroke="white" stroke-width="1.5"/>`;
-                svg += `<text x="${pt.x}" y="${pt.y - 10}" text-anchor="middle" font-size="10" font-weight="700" fill="${metric.colour}">${pt.v.toFixed(1)}</text>`;
+              // Dots
+              valid.forEach((pt, i) => {
+                const isLast = i === valid.length - 1;
+                svg += `<circle cx="${pt.x}" cy="${pt.y}" r="${isLast ? 5 : 3.5}" fill="${metric.colour}" stroke="white" stroke-width="1.5"/>`;
+                // Only show value label on last point to avoid clutter
+                if (isLast) {
+                  svg += `<text x="${pt.x + 8}" y="${pt.y + 4}" text-anchor="start" font-size="10" font-weight="700" fill="${metric.colour}">${pt.v.toFixed(1)}</text>`;
+                }
               });
             });
 
             svg += `</svg>`;
 
-            // Legend
+            // Legend — training solid, match dashed
             const legend = METRICS.map(m =>
               `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">
-                <span style="width:16px;height:3px;border-radius:99px;background:${m.colour};display:inline-block;flex-shrink:0;"></span>${m.label}
+                <svg width="18" height="10" style="flex-shrink:0;"><line x1="0" y1="5" x2="18" y2="5" stroke="${m.colour}" stroke-width="2.5" ${m.type==='match'?'stroke-dasharray="4,2"':''}/><circle cx="9" cy="5" r="3" fill="${m.colour}"/></svg>${m.label}
               </span>`
             ).join('');
 
-            return svg + `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">${legend}</div>`;
+            return svg + `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;">${legend}</div>`;
           })()}
         </div>`}
 
