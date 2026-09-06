@@ -61,13 +61,18 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
 
   // Listen for Firebase Auth state changes
+  let dataListening = false;
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // User is signed in — find their coach record by email
-      listenData();
+      // Only start listeners once — prevents duplicate onValue registrations
+      if (!dataListening) {
+        dataListening = true;
+        listenData();
+      }
       await resolveCoachFromEmail(user.email);
     } else {
       // Not signed in — show login screen
+      dataListening = false;
       currentCoach = null;
       document.getElementById('screen-app')?.classList.add('hidden');
       document.getElementById('screen-login')?.classList.remove('hidden');
@@ -156,9 +161,9 @@ window.doPasswordReset = async function() {
 };
 
 async function resolveCoachFromEmail(email) {
-  // Wait for coaches data to be available
+  // Wait for both coaches and players data to be available
   let attempts = 0;
-  while (Object.keys(allCoaches).length === 0 && attempts < 20) {
+  while ((Object.keys(allCoaches).length === 0 || Object.keys(allPlayers).length === 0) && attempts < 40) {
     await new Promise(r => setTimeout(r, 250));
     attempts++;
   }
@@ -342,19 +347,21 @@ window.closeModal = function(id) {
 
 window.openIDPForPlayer = function(pid) {
   const p = allPlayers[pid];
-  if (!p) return;
+  if (!p) { toast('Player data not loaded yet. Try again in a moment.'); return; }
   // Switch to IDP view
   switchView('idp', document.querySelector('[data-view=idp]'));
   // Set group then populate player select then set player
   setTimeout(() => {
     const grpSel = document.getElementById('idp-group');
+    if (!grpSel) return;
     grpSel.value = p.group;
     loadIDPPlayers();
     setTimeout(() => {
-      document.getElementById('idp-player').value = pid;
+      const playerSel = document.getElementById('idp-player');
+      if (playerSel) playerSel.value = pid;
       renderIDP();
-    }, 50);
-  }, 50);
+    }, 150);
+  }, 150);
 };
 
 // ── TRAINING VIEW ─────────────────────────────────────────────────
