@@ -504,6 +504,22 @@
 
       <!-- DATA MANAGEMENT TAB -->
       <div id="admin-data" class="admin-panel hidden">
+
+        <div class="form-card" style="border-left:4px solid #C0272D;">
+          <div class="form-section-title" style="color:#C0272D;">Delete test data</div>
+          <p class="help-text">Permanently deletes all training sessions, match reports, monthly reviews, and goals recorded before the selected date. Players, coaches, and fitness data are not affected. This cannot be undone.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Delete all data before</label>
+              <input type="date" id="cleanup-date" value="2024-08-24">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-danger" onclick="deleteDataBefore()">Delete data before this date</button>
+          </div>
+          <div id="cleanup-status" class="status-msg"></div>
+        </div>
+
         <div class="form-card">
           <div class="form-section-title">Data management</div>
           <p class="help-text">Find and delete incorrect entries. Deletions are permanent and cannot be undone.</p>
