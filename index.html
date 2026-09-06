@@ -58,6 +58,7 @@
     <button class="nav-btn hidden" data-view="insights" onclick="switchView('insights',this)">Insights</button>
     <button class="nav-btn hidden" data-view="potential" onclick="switchView('potential',this)">Potential</button>
     <button class="nav-btn hidden" data-view="fitness" onclick="switchView('fitness',this)">Fitness</button>
+    <button class="nav-btn hidden" data-view="teamreview" onclick="switchView('teamreview',this)">Team Review</button>
   </nav>
 
   <main class="app-main">
@@ -719,6 +720,35 @@
       <div id="edit-player-status" class="status-msg"></div>
     </div>
   </div>
+
+    <!-- TEAM REVIEW -->
+    <div id="view-teamreview" class="view hidden">
+      <div class="view-header">
+        <div class="page-title">Team Review</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px;">Full season to date. Includes attendance, ratings, DNA compliance, and block coverage.</div>
+      </div>
+      <div class="form-card">
+        <div class="form-section-title">Select age group</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Age group</label>
+            <select id="tr-review-group" onchange="renderTeamReview()">
+              <option value="">Select group...</option>
+              <option>U14</option>
+              <option>U15</option>
+              <option>U16</option>
+              <option>U18</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button class="btn-secondary" onclick="printTeamReview()" style="margin-bottom:0;">
+              Print / Download PDF
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="tr-review-output" style="padding:0 4px;"></div>
+    </div>
 
     <!-- FITNESS TESTING -->
     <div id="view-fitness" class="view hidden">
