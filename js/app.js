@@ -50,7 +50,7 @@ function coachPhaseGroups() {
 
 function canAccessNav(view) {
   if (isAdmin())     return true;
-  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard','insights','potential'].includes(view);
+  if (isPhaseLead()) return ['players','training','match','monthly','idp','dashboard','insights','potential','teamreview','fitness'].includes(view);
   if (isManager())   return ['players','match','idp','insights'].includes(view);
   return false;
 }
@@ -190,7 +190,7 @@ async function resolveCoachFromEmail(email) {
   if (loginBtn) { loginBtn.textContent = 'Sign in'; loginBtn.disabled = false; }
 
   // Show permitted nav items
-  const navViews = ['players','training','match','monthly','idp','admin','dashboard','insights','potential','fitness'];
+  const navViews = ['players','training','match','monthly','idp','admin','dashboard','insights','potential','fitness','teamreview'];
   navViews.forEach(v => {
     const btn = document.querySelector(`[data-view="${v}"]`);
     if (!btn) return;
@@ -243,6 +243,7 @@ window.switchView = function(v, btn) {
 
   if (v === 'training')  initTrainingView();
   if (v === 'fitness')   initFitnessView();
+  if (v === 'teamreview') { document.getElementById('tr-review-output').innerHTML = ''; }
   if (v === 'match')     initMatchView();
   if (v === 'monthly')   initMonthlyView();
   if (v === 'admin')     renderAdminPlayers();
@@ -1907,6 +1908,364 @@ function resetAttendance() {
 function getAttendanceForPlayer(pid) {
   return attendanceState[pid] || 'present';
 }
+
+// ── TEAM REVIEW ──────────────────────────────────────────────────
+window.renderTeamReview = function() {
+  const group  = document.getElementById('tr-review-group').value;
+  const output = document.getElementById('tr-review-output');
+  if (!group) { output.innerHTML = '<div class="empty-state">Select an age group.</div>'; return; }
+
+  // ── Gather data ───────────────────────────────────────────────
+  const players = Object.entries(allPlayers).filter(([id, p]) => p.group === group);
+  if (!players.length) { output.innerHTML = '<div class="empty-state">No players found in this group.</div>'; return; }
+  const pids = players.map(([id]) => id);
+
+  const trainSessions = Object.values(allTraining)
+    .filter(t => t.group === group && t.entries)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const matchSessions = Object.values(allMatches)
+    .filter(m => m.group === group && m.entries)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // ── Helper ────────────────────────────────────────────────────
+  const avg = (vals) => {
+    const v = vals.map(x => parseFloat(x)).filter(x => !isNaN(x) && x > 0);
+    return v.length ? (v.reduce((a,b)=>a+b,0)/v.length) : null;
+  };
+  const pct = (n, d) => d ? Math.round((n/d)*100) : 0;
+  const col = (v) => {
+    if (!v) return 'var(--text3)';
+    if (v >= 3.5) return '#B8922A';
+    if (v >= 2.5) return '#2A8C3F';
+    return '#C0272D';
+  };
+  const bar = (v, max=5) => {
+    if (!v) return '';
+    const w = Math.round((v/max)*100);
+    const bg = v >= 3.5 ? 'linear-gradient(90deg,#8a6a00,#B8922A)' :
+               v >= 2.5 ? 'linear-gradient(90deg,#1a5c28,#2A8C3F)' :
+                          'linear-gradient(90deg,#e07000,#f09030)';
+    return `<div style="height:6px;background:var(--bg3);border-radius:3px;margin-top:4px;">
+      <div style="width:${w}%;height:100%;border-radius:3px;background:${bg};"></div></div>`;
+  };
+  const metricCard = (label, val) => `
+    <div style="flex:1;min-width:120px;padding:12px 14px;background:var(--bg2);border-radius:8px;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">${label}</div>
+      <div style="font-size:22px;font-weight:700;color:${col(val)};">${val ? val.toFixed(2) : 'N/A'}</div>
+      ${val ? bar(val) : ''}
+    </div>`;
+  const dnaCard = (label, val) => `
+    <div style="flex:1;min-width:110px;padding:12px 14px;background:var(--bg2);border-radius:8px;border-top:3px solid ${col(val)};">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${label}</div>
+      <div style="font-size:20px;font-weight:700;color:${col(val)};">${val ? val.toFixed(2) : 'N/A'}<span style="font-size:12px;color:var(--text3);">/5</span></div>
+      ${val ? bar(val) : ''}
+    </div>`;
+
+  // ── Attendance ────────────────────────────────────────────────
+  const totalSessions = trainSessions.length + matchSessions.length;
+  let presentCount = 0, injuredCount = 0, absentCount = 0, nsCount = 0;
+  pids.forEach(pid => {
+    trainSessions.forEach(t => {
+      if (!t.entries[pid]) return;
+      const att = t.entries[pid].attendance || 'present';
+      if (att === 'present') presentCount++;
+      else if (att === 'injured') injuredCount++;
+      else if (att === 'absent') absentCount++;
+      else if (att === 'notselected') nsCount++;
+    });
+    matchSessions.forEach(m => {
+      if (!m.entries[pid]) return;
+      const att = m.entries[pid].attendance || 'present';
+      if (att === 'present') presentCount++;
+      else if (att === 'injured') injuredCount++;
+      else if (att === 'absent') absentCount++;
+      else if (att === 'notselected') nsCount++;
+    });
+  });
+  const totalSlots = players.length * totalSessions;
+  const countableSlots = totalSlots - nsCount;
+  const attPct = pct(presentCount, countableSlots);
+
+  // ── Player attendance table ───────────────────────────────────
+  const playerAttRows = players.map(([pid, p]) => {
+    let pp=0, ii=0, aa=0, nn=0;
+    [...trainSessions, ...matchSessions].forEach(s => {
+      if (!s.entries?.[pid]) return;
+      const att = s.entries[pid].attendance || 'present';
+      if (att==='present') pp++;
+      else if (att==='injured') ii++;
+      else if (att==='absent') aa++;
+      else if (att==='notselected') nn++;
+    });
+    const countable = totalSessions - nn;
+    const playerPct = pct(pp, countable);
+    const flagColor = playerPct < 85 ? '#C0272D' : '#2A8C3F';
+    return { pid, p, pp, ii, aa, nn, playerPct, flagColor };
+  }).sort((a,b) => a.playerPct - b.playerPct);
+
+  // ── Group rating averages ─────────────────────────────────────
+  const attitude = avg(trainSessions.flatMap(t =>
+    pids.filter(pid => t.entries?.[pid] && (!t.entries[pid].attendance || t.entries[pid].attendance==='present'))
+        .map(pid => t.entries[pid].attitude)));
+  const communication = avg(trainSessions.flatMap(t =>
+    pids.filter(pid => t.entries?.[pid] && (!t.entries[pid].attendance || t.entries[pid].attendance==='present'))
+        .map(pid => t.entries[pid].communication)));
+  const performance = avg(trainSessions.flatMap(t =>
+    pids.filter(pid => t.entries?.[pid] && (!t.entries[pid].attendance || t.entries[pid].attendance==='present'))
+        .map(pid => t.entries[pid].performance)));
+  const mindset = avg(matchSessions.flatMap(m =>
+    pids.filter(pid => m.entries?.[pid] && (!m.entries[pid].attendance || m.entries[pid].attendance==='present'))
+        .map(pid => m.entries[pid].mindset)));
+  const physical = avg(matchSessions.flatMap(m =>
+    pids.filter(pid => m.entries?.[pid] && (!m.entries[pid].attendance || m.entries[pid].attendance==='present'))
+        .map(pid => m.entries[pid].physical)));
+  const impact = avg(matchSessions.flatMap(m =>
+    pids.filter(pid => m.entries?.[pid] && (!m.entries[pid].attendance || m.entries[pid].attendance==='present'))
+        .map(pid => m.entries[pid].impact)));
+
+  // ── DNA compliance ────────────────────────────────────────────
+  const dnaForward    = avg(matchSessions.map(m => m.dna?.forward));
+  const dnaBallspeed  = avg(matchSessions.map(m => m.dna?.ballspeed));
+  const dnaFinalthird = avg(matchSessions.map(m => m.dna?.finalthird));
+  const dnaPress      = avg(matchSessions.map(m => m.dna?.press));
+  const dnaRecovery   = avg(matchSessions.map(m => m.dna?.recovery));
+
+  // Per-match DNA table
+  const dnaMatchRows = matchSessions.map(m => {
+    const dnaAvg = avg([m.dna?.forward, m.dna?.ballspeed, m.dna?.finalthird, m.dna?.press, m.dna?.recovery]);
+    return { date: m.date, opp: m.opposition || 'Unknown', venue: m.venue || '', dna: m.dna, dnaAvg };
+  });
+
+  // ── Block coverage ────────────────────────────────────────────
+  const blockNames = {
+    '1':'Build and Progress','2':'Create and Exploit Space',
+    '3':'Final Third Effectiveness','4':'Press and Regain',
+    '5':'Defend and Transition','6':'Game Control and Compete'
+  };
+  const blockCoverage = {};
+  [...trainSessions, ...matchSessions].forEach(s => {
+    if (s.block) {
+      if (!blockCoverage[s.block]) blockCoverage[s.block] = { sessions: 0, cycles: new Set() };
+      blockCoverage[s.block].sessions++;
+      if (s.cycle) blockCoverage[s.block].cycles.add(s.cycle);
+    }
+  });
+
+  // ── Player rating table ───────────────────────────────────────
+  const playerRatingRows = players.map(([pid, p]) => {
+    const trSess = trainSessions.filter(t =>
+      t.entries?.[pid] && (!t.entries[pid].attendance || t.entries[pid].attendance==='present'));
+    const mtSess = matchSessions.filter(m =>
+      m.entries?.[pid] && (!m.entries[pid].attendance || m.entries[pid].attendance==='present'));
+    const att  = avg(trSess.map(t => t.entries[pid].attitude));
+    const comm = avg(trSess.map(t => t.entries[pid].communication));
+    const perf = avg(trSess.map(t => t.entries[pid].performance));
+    const mind = avg(mtSess.map(m => m.entries[pid].mindset));
+    const phys = avg(mtSess.map(m => m.entries[pid].physical));
+    const imp  = avg(mtSess.map(m => m.entries[pid].impact));
+    const overall = avg([att,comm,perf,mind,phys,imp].filter(Boolean));
+    return { pid, p, att, comm, perf, mind, phys, imp, overall };
+  }).sort((a,b) => (b.overall||0)-(a.overall||0));
+
+  const today = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+
+  // ── RENDER ────────────────────────────────────────────────────
+  output.innerHTML = `
+  <div id="team-review-print" style="font-family:Arial,sans-serif;max-width:900px;">
+
+    <!-- Header -->
+    <div style="background:#0f3d1a;color:white;padding:24px 28px;border-radius:10px;margin-bottom:20px;">
+      <div style="font-size:11px;color:#B8922A;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Bognor Regis Town FC Academy</div>
+      <div style="font-size:28px;font-weight:700;margin-bottom:4px;">${group} — Team Review</div>
+      <div style="font-size:14px;color:#aaaaaa;">Season to date &bull; Generated ${today} &bull; ${players.length} players &bull; ${trainSessions.length} training sessions &bull; ${matchSessions.length} matches</div>
+    </div>
+
+    <!-- Attendance summary -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#0f3d1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Attendance Summary</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <div style="flex:1;min-width:110px;padding:14px;background:var(--bg2);border-radius:8px;border-top:3px solid ${attPct>=85?'#2A8C3F':'#C0272D'};">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Group attendance</div>
+          <div style="font-size:24px;font-weight:700;color:${attPct>=85?'#2A8C3F':'#C0272D'};">${attPct}%</div>
+        </div>
+        <div style="flex:1;min-width:110px;padding:14px;background:var(--bg2);border-radius:8px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Sessions delivered</div>
+          <div style="font-size:24px;font-weight:700;color:var(--text);">${totalSessions}</div>
+        </div>
+        <div style="flex:1;min-width:110px;padding:14px;background:var(--bg2);border-radius:8px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Injured absences</div>
+          <div style="font-size:24px;font-weight:700;color:var(--text);">${injuredCount}</div>
+        </div>
+        <div style="flex:1;min-width:110px;padding:14px;background:var(--bg2);border-radius:8px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Unexplained absences</div>
+          <div style="font-size:24px;font-weight:700;color:${absentCount>0?'#C0272D':'var(--text)'};">${absentCount}</div>
+        </div>
+      </div>
+
+      <!-- Player attendance table -->
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#0f3d1a;color:white;">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;">Player</th>
+            <th style="padding:8px 10px;text-align:center;">Present</th>
+            <th style="padding:8px 10px;text-align:center;">Injured</th>
+            <th style="padding:8px 10px;text-align:center;">Absent</th>
+            <th style="padding:8px 10px;text-align:center;">Not Selected</th>
+            <th style="padding:8px 10px;text-align:center;">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${playerAttRows.map((r,i) => `
+          <tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'};border-bottom:1px solid var(--border);">
+            <td style="padding:7px 10px;font-weight:500;">${r.p.fname} ${r.p.lname}</td>
+            <td style="padding:7px 10px;text-align:center;">${r.pp}</td>
+            <td style="padding:7px 10px;text-align:center;">${r.ii || '-'}</td>
+            <td style="padding:7px 10px;text-align:center;color:${r.aa>0?'#C0272D':'inherit'};">${r.aa || '-'}</td>
+            <td style="padding:7px 10px;text-align:center;color:var(--text3);">${r.nn || '-'}</td>
+            <td style="padding:7px 10px;text-align:center;font-weight:700;color:${r.flagColor};">${r.playerPct}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Group rating averages -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#0f3d1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Group Rating Averages — Season to Date</div>
+      <div style="margin-bottom:8px;font-size:12px;color:var(--text3);">Training metrics</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        ${metricCard('Attitude', attitude)}
+        ${metricCard('Communication', communication)}
+        ${metricCard('Performance', performance)}
+      </div>
+      <div style="margin-bottom:8px;font-size:12px;color:var(--text3);">Match metrics</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        ${metricCard('Mindset', mindset)}
+        ${metricCard('Physical', physical)}
+        ${metricCard('Impact', impact)}
+      </div>
+    </div>
+
+    <!-- Player ratings table -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#0f3d1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Individual Player Ratings</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#0f3d1a;color:white;">
+            <th style="padding:8px 10px;text-align:left;">Player</th>
+            <th style="padding:8px 10px;text-align:center;">Attitude</th>
+            <th style="padding:8px 10px;text-align:center;">Comms</th>
+            <th style="padding:8px 10px;text-align:center;">Perf</th>
+            <th style="padding:8px 10px;text-align:center;">Mindset</th>
+            <th style="padding:8px 10px;text-align:center;">Physical</th>
+            <th style="padding:8px 10px;text-align:center;">Impact</th>
+            <th style="padding:8px 10px;text-align:center;">Overall</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${playerRatingRows.map((r,i) => `
+          <tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'};border-bottom:1px solid var(--border);">
+            <td style="padding:7px 10px;font-weight:500;">${r.p.fname} ${r.p.lname}</td>
+            ${[r.att,r.comm,r.perf,r.mind,r.phys,r.imp].map(v =>
+              `<td style="padding:7px 10px;text-align:center;color:${col(v)};font-weight:600;">${v?v.toFixed(2):'-'}</td>`
+            ).join('')}
+            <td style="padding:7px 10px;text-align:center;font-weight:700;color:${col(r.overall)};">${r.overall?r.overall.toFixed(2):'-'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DNA Compliance -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#0f3d1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">DNA Compliance — Match Reports (${matchSessions.length} matches)</div>
+      ${matchSessions.length ? `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        ${dnaCard('Forward First', dnaForward)}
+        ${dnaCard('Ball Speed', dnaBallspeed)}
+        ${dnaCard('Final Third', dnaFinalthird)}
+        ${dnaCard('Press &amp; Regain', dnaPress)}
+        ${dnaCard('Recovery', dnaRecovery)}
+      </div>
+      <div style="font-size:13px;font-weight:600;color:#0f3d1a;margin-bottom:8px;">Per-match DNA record</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#0f3d1a;color:white;">
+            <th style="padding:7px 10px;text-align:left;">Date</th>
+            <th style="padding:7px 10px;text-align:left;">Opposition</th>
+            <th style="padding:7px 10px;text-align:center;">Forward</th>
+            <th style="padding:7px 10px;text-align:center;">Ball Speed</th>
+            <th style="padding:7px 10px;text-align:center;">Final Third</th>
+            <th style="padding:7px 10px;text-align:center;">Press</th>
+            <th style="padding:7px 10px;text-align:center;">Recovery</th>
+            <th style="padding:7px 10px;text-align:center;">Avg</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dnaMatchRows.map((r,i) => `
+          <tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'};border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px;">${r.date}</td>
+            <td style="padding:6px 10px;font-weight:500;">${r.opp} ${r.venue?'('+r.venue+')':''}</td>
+            ${['forward','ballspeed','finalthird','press','recovery'].map(k =>
+              `<td style="padding:6px 10px;text-align:center;color:${col(r.dna?.[k])};font-weight:600;">${r.dna?.[k]||'-'}</td>`
+            ).join('')}
+            <td style="padding:6px 10px;text-align:center;font-weight:700;color:${col(r.dnaAvg)};">${r.dnaAvg?r.dnaAvg.toFixed(2):'-'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<div style="color:var(--text3);font-size:13px;">No match reports recorded yet.</div>'}
+    </div>
+
+    <!-- Block coverage -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#0f3d1a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Block Coverage — Season to Date</div>
+      ${Object.keys(blockCoverage).length ? `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#0f3d1a;color:white;">
+            <th style="padding:8px 10px;text-align:left;">Block</th>
+            <th style="padding:8px 10px;text-align:center;">Sessions</th>
+            <th style="padding:8px 10px;text-align:left;">Cycles delivered</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[1,2,3,4,5,6].map((bn,i) => {
+            const bc = blockCoverage[String(bn)];
+            if (!bc) return `<tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'};border-bottom:1px solid var(--border);">
+              <td style="padding:7px 10px;color:var(--text3);">Block ${bn}: ${blockNames[bn]||''}</td>
+              <td style="padding:7px 10px;text-align:center;color:var(--text3);">-</td>
+              <td style="padding:7px 10px;color:var(--text3);">Not yet delivered</td></tr>`;
+            const cycleLabels = { 'recognition':'C1 Wk1','execution':'C1 Wk2','application':'C1 Wk3','execution+':'C2 Wk1','application2':'C2 Wk2','integration':'C2 Wk3' };
+            const cyclesStr = bc.cycles.size ? [...bc.cycles].map(cy => cycleLabels[cy]||cy).join(', ') : 'Cycle not recorded';
+            return `<tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'};border-bottom:1px solid var(--border);">
+              <td style="padding:7px 10px;font-weight:500;">Block ${bn}: ${blockNames[bn]||''}</td>
+              <td style="padding:7px 10px;text-align:center;font-weight:700;color:#0f3d1a;">${bc.sessions}</td>
+              <td style="padding:7px 10px;color:var(--text2);">${cyclesStr}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>` : '<div style="color:var(--text3);font-size:13px;">No block data recorded yet. Make sure coaches select the block when entering training sessions.</div>'}
+    </div>
+
+  </div>`;
+};
+
+window.printTeamReview = function() {
+  const content = document.getElementById('team-review-print');
+  if (!content) return;
+  const group = document.getElementById('tr-review-group').value;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>${group} Team Review</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #111; background: white; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 7px 10px; border: 1px solid #e0e0e0; }
+      th { background: #0f3d1a; color: white; }
+      @media print { body { margin: 0; } }
+    </style>
+  </head><body>${content.innerHTML}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 500);
+};
 
 // ── DATA CLEANUP ─────────────────────────────────────────────────
 window.deleteDataBefore = async function() {
