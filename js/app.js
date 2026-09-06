@@ -1908,6 +1908,58 @@ function getAttendanceForPlayer(pid) {
   return attendanceState[pid] || 'present';
 }
 
+// ── DATA CLEANUP ─────────────────────────────────────────────────
+window.deleteDataBefore = async function() {
+  const cutoff = document.getElementById('cleanup-date').value;
+  if (!cutoff) { setStatus('cleanup-status', 'Please select a date.', false); return; }
+
+  const confirmed = confirm(
+    `This will permanently delete ALL training sessions, match reports, monthly reviews, and goals recorded before ${cutoff}.\n\nPlayers, coaches, and fitness data will NOT be affected.\n\nThis cannot be undone. Are you sure?`
+  );
+  if (!confirmed) return;
+
+  // Double confirm
+  const confirmed2 = confirm('Are you absolutely sure? This data cannot be recovered.');
+  if (!confirmed2) return;
+
+  setStatus('cleanup-status', 'Deleting...', true);
+
+  const collections = [
+    { path: 'training', dateField: 'date' },
+    { path: 'matches',  dateField: 'date' },
+    { path: 'monthly',  dateField: 'month' },
+    { path: 'goals',    dateField: 'createdAt' },
+  ];
+
+  let totalDeleted = 0;
+  let errors = [];
+
+  for (const col of collections) {
+    try {
+      const snap = await get(ref(db, col.path));
+      if (!snap.val()) continue;
+      const entries = snap.val();
+      for (const [key, val] of Object.entries(entries)) {
+        // Get the date field — goals use createdAt (ISO string), others use date (YYYY-MM-DD)
+        let dateStr = val[col.dateField] || '';
+        // Normalise — take first 10 chars (YYYY-MM-DD) from any format
+        dateStr = dateStr.slice(0, 10);
+        if (dateStr && dateStr < cutoff) {
+          await remove(ref(db, `${col.path}/${key}`));
+          totalDeleted++;
+        }
+      }
+    } catch(err) {
+      errors.push(`${col.path}: ${err.message}`);
+    }
+  }
+
+  const msg = errors.length
+    ? `Deleted ${totalDeleted} records. Errors: ${errors.join(', ')}`
+    : `Done. ${totalDeleted} record${totalDeleted !== 1 ? 's' : ''} deleted before ${cutoff}.`;
+  setStatus('cleanup-status', msg, errors.length === 0);
+};
+
 // ── FITNESS DATA ─────────────────────────────────────────────────
 window.saveFitnessData = async function(pid) {
   const sprint10  = document.getElementById('fit-sprint10')?.value || '';
