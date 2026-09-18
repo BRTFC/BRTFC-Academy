@@ -373,17 +373,7 @@ function initTrainingView() {
   grpSel.innerHTML = '<option value="">Select group...</option>' +
     groups.map(g => `<option>${g}</option>`).join('');
 
-  // Auto-detect block from current date
-  const trDate = document.getElementById('tr-date')?.value;
-  const detectedBlock = autoDetectBlock(trDate);
-  if (detectedBlock) {
-    const blockSel = document.getElementById('tr-block');
-    if (blockSel) {
-      blockSel.value = detectedBlock;
-      showBlockInfo('tr-block', 'tr-block-info');
-    }
-  }
-  // Wire date change to re-detect block
+  // Block/cycle will auto-fill once a group is selected (see loadTrainingPlayers / group onchange)
   const trDateEl = document.getElementById('tr-date');
   if (trDateEl) trDateEl.onchange = window.onTrainingDateChange;
   loadTrainingPlayers();
@@ -398,43 +388,74 @@ const BLOCK_INFO = {
   '6': { title: 'Block 6: Game Control and Compete', focus: 'Reset when needed, control tempo, manage risk.', behaviours: 'Communication, engagement, accountability.' }
 };
 
-function autoDetectBlock(dateStr) {
-  const check = dateStr ? new Date(dateStr) : new Date();
-  check.setHours(0,0,0,0);
+// Ordered progression through blocks and cycles — used to work out "what comes next"
+const CYCLE_SEQUENCE = [
+  { block: '1', cycle: 'recognition' }, { block: '1', cycle: 'execution' }, { block: '1', cycle: 'application' },
+  { block: '2', cycle: 'recognition' }, { block: '2', cycle: 'execution' }, { block: '2', cycle: 'application' },
+  { block: '3', cycle: 'recognition' }, { block: '3', cycle: 'execution' }, { block: '3', cycle: 'application' },
+  { block: '4', cycle: 'recognition' }, { block: '4', cycle: 'execution' }, { block: '4', cycle: 'application' },
+  { block: '5', cycle: 'recognition' }, { block: '5', cycle: 'execution' }, { block: '5', cycle: 'application' },
+  { block: '6', cycle: 'recognition' }, { block: '6', cycle: 'execution' }, { block: '6', cycle: 'application' },
+  { block: '1', cycle: 'execution+' }, { block: '1', cycle: 'application2' }, { block: '1', cycle: 'integration' },
+  { block: '2', cycle: 'execution+' }, { block: '2', cycle: 'application2' }, { block: '2', cycle: 'integration' },
+  { block: '3', cycle: 'execution+' }, { block: '3', cycle: 'application2' }, { block: '3', cycle: 'integration' },
+  { block: '4', cycle: 'execution+' }, { block: '4', cycle: 'application2' }, { block: '4', cycle: 'integration' },
+  { block: '5', cycle: 'execution+' }, { block: '5', cycle: 'application2' }, { block: '5', cycle: 'integration' },
+  { block: '6', cycle: 'execution+' }, { block: '6', cycle: 'application2' }, { block: '6', cycle: 'integration' }
+];
 
-  let termStart = null;
-  for (let n = 1; n <= 3; n++) {
-    const t = termDates[n];
-    if (!t?.start || !t?.end) continue;
-    const s = new Date(t.start);
-    const e = new Date(t.end);
-    if (check >= s && check <= e) { termStart = s; break; }
-  }
-  if (!termStart) return null;
+// Finds the group's most recently SAVED session (by date, across training + matches)
+// and returns what block/cycle should come NEXT for that group. This replaces the old
+// calendar-formula approach, which drifted further from reality every week it wasn't
+// manually corrected. This method only ever moves forward from what was actually delivered.
+function autoDetectBlock(dateStr, group) {
+  if (!group) return null;
 
-  const daysIn   = Math.floor((check - termStart) / (1000 * 60 * 60 * 24));
-  const weekNum  = Math.floor(daysIn / 7);
-  const blockNum = (Math.floor(weekNum / 3) % 6) + 1;
-  return String(blockNum);
+  const allSessions = [
+    ...Object.values(allTraining).filter(t => t.group === group && t.date && t.block),
+    ...Object.values(allMatches).filter(m => m.group === group && m.date && m.block)
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!allSessions.length) return { block: '1', cycle: 'recognition' }; // no history yet — start at the beginning
+
+  const last = allSessions[allSessions.length - 1];
+  const lastIdx = CYCLE_SEQUENCE.findIndex(s => s.block === last.block && s.cycle === last.cycle);
+
+  // If the last saved cycle isn't recognised (e.g. blank/legacy data), just repeat it rather than guess
+  if (lastIdx === -1) return { block: last.block, cycle: last.cycle || 'recognition' };
+
+  // Same day as last session? Show the same block/cycle rather than jumping ahead
+  if (dateStr && dateStr === last.date) return { block: last.block, cycle: last.cycle };
+
+  const nextIdx = Math.min(lastIdx + 1, CYCLE_SEQUENCE.length - 1);
+  return CYCLE_SEQUENCE[nextIdx];
 }
 
 // Called when training date changes
 window.onTrainingDateChange = function() {
-  const date = document.getElementById('tr-date')?.value;
-  const block = autoDetectBlock(date);
-  if (block) {
+  const date  = document.getElementById('tr-date')?.value;
+  const group = document.getElementById('tr-group')?.value;
+  const next  = autoDetectBlock(date, group);
+  if (next) {
     const blockSel = document.getElementById('tr-block');
-    if (blockSel) { blockSel.value = block; showBlockInfo('tr-block', 'tr-block-info'); }
+    const cycleSel = document.getElementById('tr-cycle');
+    if (blockSel) blockSel.value = next.block;
+    if (cycleSel) cycleSel.value = next.cycle;
+    showBlockInfo('tr-block', 'tr-block-info');
   }
 };
 
 // Called when match date changes
 window.onMatchDateChange = function() {
-  const date = document.getElementById('mr-date')?.value;
-  const block = autoDetectBlock(date);
-  if (block) {
+  const date  = document.getElementById('mr-date')?.value;
+  const group = document.getElementById('mr-group')?.value;
+  const next  = autoDetectBlock(date, group);
+  if (next) {
     const blockSel = document.getElementById('mr-block');
-    if (blockSel) { blockSel.value = block; showBlockInfo('mr-block', 'mr-block-info'); }
+    const cycleSel = document.getElementById('mr-cycle');
+    if (blockSel) blockSel.value = next.block;
+    if (cycleSel) cycleSel.value = next.cycle;
+    showBlockInfo('mr-block', 'mr-block-info');
   }
 };
 
@@ -454,6 +475,9 @@ window.loadTrainingPlayers = function() {
   const group = document.getElementById('tr-group').value;
   const container = document.getElementById('tr-players-container');
   if (!group) { container.innerHTML = '<div class="empty-state">Select an age group to load players.</div>'; return; }
+
+  // Auto-fill block/cycle now that we know the group
+  window.onTrainingDateChange();
 
   const players = Object.entries(allPlayers).filter(([id, p]) => p.group === group)
     .sort((a, b) => a[1].lname.localeCompare(b[1].lname));
@@ -532,6 +556,8 @@ window.onMatchGroupChange = function() {
   const group = document.getElementById('mr-group').value;
   const compRow = document.getElementById('mr-competition-row');
   if (compRow) compRow.style.display = group === 'U18' ? 'flex' : 'none';
+  // Auto-fill block/cycle now that we know the group
+  window.onMatchDateChange();
   loadMatchPlayers();
 };
 
@@ -551,16 +577,7 @@ function initMatchView() {
     if (el) { el.dataset.val = 3; el.querySelectorAll('.star').forEach((s,i) => s.classList.toggle('on', i < 3)); const cnt = el.querySelector('.star-count'); if(cnt) cnt.textContent = '3/5'; }
   });
 
-  // Auto-detect block from match date
-  const mrDate = document.getElementById('mr-date')?.value;
-  const detectedBlock = autoDetectBlock(mrDate);
-  if (detectedBlock) {
-    const blockSel = document.getElementById('mr-block');
-    if (blockSel) {
-      blockSel.value = detectedBlock;
-      showBlockInfo('mr-block', 'mr-block-info');
-    }
-  }
+  // Block/cycle will auto-fill once a group is selected (see onMatchGroupChange)
   // Wire date change
   const mrDateEl = document.getElementById('mr-date');
   if (mrDateEl) mrDateEl.onchange = window.onMatchDateChange;
@@ -2423,6 +2440,64 @@ window.deleteDataBefore = async function() {
     ? `Deleted ${totalDeleted} records. Errors: ${errors.join(', ')}`
     : `Done. ${totalDeleted} record${totalDeleted !== 1 ? 's' : ''} deleted before ${cutoff}.`;
   setStatus('cleanup-status', msg, errors.length === 0);
+};
+
+// ── BLOCK/CYCLE CORRECTION ──────────────────────────────────────────
+// One-time fix for sessions saved while the old date-formula auto-detection
+// was drifting. Resets ALL training and match sessions to Block 1, ordering
+// the Cycle 1 stage (recognition/execution/application) by date within each
+// group so the sequence still reads correctly.
+window.correctBlockData = async function() {
+  const confirmed = confirm(
+    'This will reset the BLOCK and CYCLE on every training session and match report to Block 1, ' +
+    'ordering Recognition / Execution / Application by date within each age group.\n\n' +
+    'Use this only if all data recorded so far genuinely belongs to Block 1.\n\n' +
+    'This cannot be undone. Continue?'
+  );
+  if (!confirmed) return;
+
+  setStatus('correct-status', 'Correcting...', true);
+
+  const stageOrder = ['recognition', 'execution', 'application'];
+  const collections = ['training', 'matches'];
+  let totalUpdated = 0;
+  let errors = [];
+
+  // Group all sessions (training + matches) by age group, sorted by date,
+  // so the earliest sessions become Recognition, then Execution, then Application.
+  const groups = ['U14', 'U15', 'U16', 'U18'];
+
+  for (const grp of groups) {
+    try {
+      const sessions = [];
+      for (const col of collections) {
+        const snap = await get(ref(db, col));
+        const entries = snap.val() || {};
+        Object.entries(entries).forEach(([key, val]) => {
+          if (val.group === grp && val.date) {
+            sessions.push({ col, key, date: val.date });
+          }
+        });
+      }
+      sessions.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Split into up to 3 roughly-even date-ordered chunks -> recognition, execution, application
+      const chunkCount = Math.min(3, sessions.length);
+      for (let i = 0; i < sessions.length; i++) {
+        const stageIdx = chunkCount <= 1 ? 0 : Math.min(2, Math.floor((i / sessions.length) * 3));
+        const cycle = stageOrder[stageIdx];
+        await update(ref(db, `${sessions[i].col}/${sessions[i].key}`), { block: '1', cycle });
+        totalUpdated++;
+      }
+    } catch(err) {
+      errors.push(`${grp}: ${err.message}`);
+    }
+  }
+
+  const msg = errors.length
+    ? `Updated ${totalUpdated} sessions. Errors: ${errors.join(', ')}`
+    : `Done. ${totalUpdated} session${totalUpdated !== 1 ? 's' : ''} set to Block 1 across all groups.`;
+  setStatus('correct-status', msg, errors.length === 0);
 };
 
 // ── FITNESS DATA ─────────────────────────────────────────────────
