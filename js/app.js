@@ -902,6 +902,66 @@ window.renderIDP = function() {
   const matchPhysicalAvg = calcAvg(matchSessions.map(m => m.entries[pid].physical));
   const matchImpactAvg   = calcAvg(matchSessions.map(m => m.entries[pid].impact));
 
+  // ── Trend helper: compares first-third vs last-third of sessions in this term ──
+  function calcTrend(sessions, key) {
+    const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
+    const vals = sorted.map(s => parseFloat(s.entries[pid][key])).filter(v => !isNaN(v) && v > 0);
+    if (vals.length < 4) return null; // need at least 4 data points for a meaningful trend
+    const splitSize = Math.max(1, Math.floor(vals.length / 3));
+    const early = vals.slice(0, splitSize);
+    const recent = vals.slice(-splitSize);
+    const earlyAvg  = early.reduce((a,b)=>a+b,0) / early.length;
+    const recentAvg = recent.reduce((a,b)=>a+b,0) / recent.length;
+    const diff = recentAvg - earlyAvg;
+    if (Math.abs(diff) < 0.25) return { dir: 'stable', diff };
+    return { dir: diff > 0 ? 'up' : 'down', diff };
+  }
+  function trendBadge(trend) {
+    if (!trend) return '';
+    const arrows = { up: '&#8593;', down: '&#8595;', stable: '&#8594;' };
+    const colours = { up: '#2A8C3F', down: '#C0272D', stable: 'var(--text3)' };
+    const label = trend.dir === 'stable' ? 'Stable' : `${trend.dir === 'up' ? '+' : ''}${trend.diff.toFixed(1)}`;
+    return `<span style="font-size:11px;font-weight:700;color:${colours[trend.dir]};margin-left:6px;">${arrows[trend.dir]} ${label}</span>`;
+  }
+
+  const trainAttTrend  = calcTrend(trainSessions, 'attitude');
+  const trainCommTrend = calcTrend(trainSessions, 'communication');
+  const trainPerfTrend = calcTrend(trainSessions, 'performance');
+  const matchMindsetTrend  = calcTrend(matchSessions, 'mindset');
+  const matchPhysicalTrend = calcTrend(matchSessions, 'physical');
+  const matchImpactTrend   = calcTrend(matchSessions, 'impact');
+
+  // ── Group averages for the same term, same age group (excludes this player from comparison context but includes all players' data) ──
+  function calcGroupAvg(collection, key, isMatch) {
+    const groupSessions = Object.values(collection).filter(s =>
+      s.group === p.group && inTermRange(s.date, termRange) && s.entries
+    );
+    const vals = [];
+    groupSessions.forEach(s => {
+      Object.entries(s.entries).forEach(([pidKey, entry]) => {
+        if (entry.attendance && entry.attendance !== 'present') return;
+        const v = parseFloat(entry[key]);
+        if (!isNaN(v) && v > 0) vals.push(v);
+      });
+    });
+    return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  }
+  function groupCompareBadge(playerVal, groupVal) {
+    if (!playerVal || !groupVal) return '';
+    const diff = parseFloat(playerVal) - groupVal;
+    if (Math.abs(diff) < 0.15) return `<span style="font-size:11px;color:var(--text3);margin-left:6px;">In line with group avg (${groupVal.toFixed(1)})</span>`;
+    const colour = diff > 0 ? '#2A8C3F' : '#C0272D';
+    const label  = diff > 0 ? 'above' : 'below';
+    return `<span style="font-size:11px;color:${colour};margin-left:6px;">${label} group avg (${groupVal.toFixed(1)})</span>`;
+  }
+
+  const grpAttAvg  = calcGroupAvg(allTraining, 'attitude');
+  const grpCommAvg = calcGroupAvg(allTraining, 'communication');
+  const grpPerfAvg = calcGroupAvg(allTraining, 'performance');
+  const grpMindsetAvg  = calcGroupAvg(allMatches, 'mindset');
+  const grpPhysicalAvg = calcGroupAvg(allMatches, 'physical');
+  const grpImpactAvg   = calcGroupAvg(allMatches, 'impact');
+
   const moAvgs = {};
   ['technical','tactical','behaviours','physical','nonNegotiables'].forEach(cat => {
     moAvgs[cat] = calcAvg(monthlyReports.map(r => r[cat]?.rating || 0).filter(v => v > 0));
@@ -975,6 +1035,33 @@ window.renderIDP = function() {
             ${attendStats.notSelected ? `${attendStats.notSelected} session${attendStats.notSelected!==1?'s':''} not selected (not counted in attendance rate).` : ''}
           </div>` : ''}
         </div>
+
+        ${(() => {
+          if (!monthlyReports.length) return '';
+          // Find the most recent report and pull its most substantial comment
+          const sorted = [...monthlyReports].sort((a, b) => {
+            const aDate = a.month?.startsWith('ht_') ? (halfTerms[a.month]?.start || '') : (a.month || '');
+            const bDate = b.month?.startsWith('ht_') ? (halfTerms[b.month]?.start || '') : (b.month || '');
+            return bDate.localeCompare(aDate);
+          });
+          const latest = sorted[0];
+          const htLabel = latest.month?.startsWith('ht_') && halfTerms[latest.month]?.label
+            ? halfTerms[latest.month].label : latest.month || 'Most recent review';
+          const comments = ['technical','tactical','behaviours','physical','nonNegotiables']
+            .map(cat => ({ cat: DNA_LABELS[cat], text: latest[cat]?.comments }))
+            .filter(c => c.text);
+          if (!comments.length) return '';
+          return `<div class="idp-section" style="background:var(--bg2);border-left:4px solid #2A8C3F;border-radius:var(--r-sm);">
+            <div class="idp-section-title" style="margin-bottom:2px;">Latest coach observation</div>
+            <div style="font-size:11px;font-weight:700;color:#2A8C3F;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">${htLabel} &bull; ${latest.coach || 'Coach'}</div>
+            ${comments.map(c => `
+              <div style="margin-bottom:8px;">
+                <span style="font-size:12px;font-weight:700;color:var(--text2);">${c.cat}:</span>
+                <span style="font-size:13px;color:var(--text);"> ${c.text}</span>
+              </div>
+            `).join('')}
+          </div>`;
+        })()}
 
         ${attendStats && attendStats.total > 0 ? `
         <div class="idp-section">
@@ -1186,13 +1273,14 @@ window.renderIDP = function() {
         <div class="idp-section">
           <div class="idp-section-title">Training performance</div>
           ${[
-            { label: 'Attitude',      val: trainAttAvg },
-            { label: 'Communication', val: trainCommAvg },
-            { label: 'Performance',   val: trainPerfAvg }
+            { label: 'Attitude',      val: trainAttAvg,  trend: trainAttTrend,  grp: grpAttAvg },
+            { label: 'Communication', val: trainCommAvg, trend: trainCommTrend, grp: grpCommAvg },
+            { label: 'Performance',   val: trainPerfAvg, trend: trainPerfTrend, grp: grpPerfAvg }
           ].map(item => `
             <div class="idp-bar-row">
-              <div class="idp-bar-labels"><span>${item.label}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
+              <div class="idp-bar-labels"><span>${item.label}${trendBadge(item.trend)}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
               ${item.val ? `<div class="idp-bar-track"><div class="idp-bar-fill" style="width:${Math.round((parseFloat(item.val)/5)*100)}%;background:${idpBarColour(item.val)};"></div></div>` : ''}
+              ${groupCompareBadge(item.val, item.grp)}
             </div>
           `).join('')}
           ${trainSessions.length > 0 ? (() => {
@@ -1219,13 +1307,14 @@ window.renderIDP = function() {
         <div class="idp-section">
           <div class="idp-section-title">Match performance</div>
           ${[
-            { label: 'Mindset',  val: matchMindsetAvg },
-            { label: 'Physical', val: matchPhysicalAvg },
-            { label: 'Impact',   val: matchImpactAvg }
+            { label: 'Mindset',  val: matchMindsetAvg,  trend: matchMindsetTrend,  grp: grpMindsetAvg },
+            { label: 'Physical', val: matchPhysicalAvg, trend: matchPhysicalTrend, grp: grpPhysicalAvg },
+            { label: 'Impact',   val: matchImpactAvg,   trend: matchImpactTrend,   grp: grpImpactAvg }
           ].map(item => `
             <div class="idp-bar-row">
-              <div class="idp-bar-labels"><span>${item.label}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
+              <div class="idp-bar-labels"><span>${item.label}${trendBadge(item.trend)}</span><span>${item.val ? item.val + '/5' : 'N/A'}</span></div>
               ${item.val ? `<div class="idp-bar-track"><div class="idp-bar-fill" style="width:${Math.round((parseFloat(item.val)/5)*100)}%;background:${idpBarColour(item.val)};"></div></div>` : ''}
+              ${groupCompareBadge(item.val, item.grp)}
             </div>
           `).join('')}
         </div>` : ''}
@@ -1353,23 +1442,40 @@ window.renderIDP = function() {
         const fKey = `${pid}_${season.replace('/','_')}`;
         const fd = allFitness[fKey];
         if (!fd) return '';
+
+        const isU18 = p.group === 'U18';
+        // Benchmarks from the curriculum preseason testing protocols
+        const benchmarks = {
+          sprint10: isU18 ? 1.75 : 1.85,   // under this value = met
+          sprint30: isU18 ? 4.10 : 4.30,   // under this value = met
+          yoyo:     isU18 ? 17   : 15,     // at or above this level = met
+          cmj:      isU18 ? 38   : 30      // at or above this value = met
+        };
+
         const tests = [
-          { label: '10m sprint', base: fd.test?.sprint10, ret: fd.retest?.sprint10, unit: 's', lower: true },
-          { label: '30m sprint', base: fd.test?.sprint30, ret: fd.retest?.sprint30, unit: 's', lower: true },
-          { label: 'Yo-Yo Level 1', base: fd.test?.yoyo, ret: fd.retest?.yoyo, unit: '', lower: false },
-          { label: 'CMJ', base: fd.test?.cmj, ret: fd.retest?.cmj, unit: 'cm', lower: false }
+          { key: 'sprint10', label: '10m sprint', base: fd.test?.sprint10, ret: fd.retest?.sprint10, unit: 's', lower: true },
+          { key: 'sprint30', label: '30m sprint', base: fd.test?.sprint30, ret: fd.retest?.sprint30, unit: 's', lower: true },
+          { key: 'yoyo',     label: 'Yo-Yo Level 1', base: fd.test?.yoyo, ret: fd.retest?.yoyo, unit: '', lower: false },
+          { key: 'cmj',      label: 'CMJ', base: fd.test?.cmj, ret: fd.retest?.cmj, unit: 'cm', lower: false }
         ].filter(t => t.base);
         if (!tests.length) return '';
+
         return `<div class="idp-section">
           <div class="idp-section-title">Fitness data — ${season}</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px;">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Benchmarks shown are ${isU18 ? 'U18' : 'U14/U15/U16'} preseason targets from the curriculum.</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px;">
             ${tests.map(t => {
               const diff = t.ret ? (parseFloat(t.ret) - parseFloat(t.base)) : null;
               const improved = diff !== null ? (t.lower ? diff < 0 : diff > 0) : null;
-              return `<div style="padding:10px 12px;background:var(--bg2);border-radius:6px;">
+              const bm = benchmarks[t.key];
+              const currentVal = parseFloat(t.ret || t.base);
+              const metBenchmark = t.lower ? currentVal < bm : currentVal >= bm;
+              const bmLabel = t.lower ? `Target: under ${bm}${t.unit}` : `Target: ${bm}${t.unit}${t.key==='cmj'?'+':'+ '}`;
+              return `<div style="padding:10px 12px;background:var(--bg2);border-radius:6px;border-top:3px solid ${metBenchmark ? '#2A8C3F' : '#C0272D'};">
                 <div style="font-size:11px;color:var(--text3);margin-bottom:3px;">${t.label}</div>
                 <div style="font-size:16px;font-weight:700;color:var(--text);">${t.base}${t.unit}</div>
                 ${t.ret ? `<div style="font-size:12px;color:${improved ? '#2A8C3F' : '#C0272D'};margin-top:2px;">Retest: ${t.ret}${t.unit} (${diff > 0 ? '+' : ''}${diff?.toFixed(2)}${t.unit})</div>` : '<div style="font-size:11px;color:var(--text3);margin-top:2px;">No retest yet</div>'}
+                <div style="font-size:11px;font-weight:600;margin-top:5px;color:${metBenchmark ? '#2A8C3F' : '#C0272D'};">${metBenchmark ? '&#10003; Target met' : '&#10007; Below target'} &bull; ${bmLabel}</div>
               </div>`;
             }).join('')}
           </div>
