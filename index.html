@@ -521,6 +521,15 @@
           <div id="cleanup-status" class="status-msg"></div>
         </div>
 
+        <div class="form-card" style="border-left:4px solid #B8922A;">
+          <div class="form-section-title" style="color:#8a6000;">Fix Block / Cycle data</div>
+          <p class="help-text">Resets the block and cycle on every existing training session and match report to Block 1, ordering Recognition &rarr; Execution &rarr; Application by date within each age group. Use this only if all sessions recorded so far genuinely belong to Block 1. Block auto-fill now continues from each group's last saved session rather than calculating from the calendar, so this should only need running once.</p>
+          <div class="btn-row">
+            <button class="btn-danger" onclick="correctBlockData()">Reset all sessions to Block 1</button>
+          </div>
+          <div id="correct-status" class="status-msg"></div>
+        </div>
+
         <div class="form-card">
           <div class="form-section-title">Data management</div>
           <p class="help-text">Find and delete incorrect entries. Deletions are permanent and cannot be undone.</p>
