@@ -718,10 +718,10 @@ window.loadMonthlyForm = function() {
   const existing = allMonthly[`${month}_${pid}`] || {};
 
   const categories = [
-    { key: 'technical',  label: 'On the Ball', sub: 'Calm, controlled, forward-first mindset' },
-    { key: 'tactical',   label: 'Game Understanding', sub: 'Recognise situations, react, exploit space' },
-    { key: 'behaviours', label: 'Compete and Commit', sub: 'Press, win first contact, work rate' },
-    { key: 'physical',   label: 'Physical Execution', sub: 'Sprint, recover, support at intensity' }
+    { key: 'technical',  label: 'On the Ball', sub: 'Calm, controlled, forward-first mindset', placeholder: 'Composure under pressure, first touch, half-turn receiving, playing forward first...' },
+    { key: 'tactical',   label: 'Game Understanding', sub: 'Recognise situations, react, exploit space', placeholder: 'Scanning before receiving, reading overloads, switching play, exploiting space...' },
+    { key: 'behaviours', label: 'Compete and Commit', sub: 'Press, win first contact, work rate', placeholder: 'Pressing intensity and triggers, recovery runs, first contacts, second balls, counter-press speed...' },
+    { key: 'physical',   label: 'Physical Execution', sub: 'Sprint, recover, support at intensity', placeholder: 'Sprint recovery, repeated high-intensity efforts, physical duels, intensity in the closing stages...' }
   ];
 
   container.innerHTML = categories.map(cat => `
@@ -736,22 +736,22 @@ window.loadMonthlyForm = function() {
       </div>
       <div class="form-group">
         <label>Comments</label>
-        <textarea id="mo_${cat.key}_comments" placeholder="Observations for ${cat.label.toLowerCase()} this month...">${existing[cat.key]?.comments || ''}</textarea>
+        <textarea id="mo_${cat.key}_comments" placeholder="${cat.placeholder}">${existing[cat.key]?.comments || ''}</textarea>
       </div>
     </div>
   `).join('') + `
     <div class="monthly-category" style="border-left:4px solid #2A8C3F;">
       <div class="monthly-cat-title" style="color:#1a5c28;">BRTFC Non-Negotiables</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Scan early. Communicate early. React immediately.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Relentless effort. Communicate early, specific, and constantly. Play forward — be brave with the ball.</div>
       <div class="rating-item" style="margin-bottom:12px;">
-        <div class="rating-label">How consistently did this player scan, communicate and react this month?</div>
+        <div class="rating-label">How consistently did this player show relentless effort, communicate early and specifically, and play forward with courage this term?</div>
         <div class="stars" id="mo_nonneg_stars" data-val="${existing.nonNegotiables?.rating || 3}">
           ${buildStars('mo_nonneg_stars', existing.nonNegotiables?.rating || 3)}
         </div>
       </div>
       <div class="form-group">
         <label>Comments</label>
-        <textarea id="mo_nonneg_comments" placeholder="Specific examples of scanning, communication and reaction...">${existing.nonNegotiables?.comments || ''}</textarea>
+        <textarea id="mo_nonneg_comments" placeholder="Effort: pressing without being asked, chasing lost causes. Communication: calling for the ball early, organising others. Forward play: taking the brave option rather than recycling...">${existing.nonNegotiables?.comments || ''}</textarea>
       </div>
     </div>
     <div class="monthly-category">
@@ -1378,7 +1378,7 @@ window.renderIDP = function() {
           ${/* Non-Negotiables row */monthlyReports.some(r => r.nonNegotiables?.rating || r.nonNegotiables?.comments) ? `
           <div class="idp-review-cat-section" style="background:var(--green-light);border-radius:var(--r-sm);padding:12px;margin-top:8px;">
             <div class="idp-review-cat-title" style="color:var(--green-dark);">BRTFC Non-Negotiables</div>
-            <div style="font-size:12px;color:var(--green-dark);margin-bottom:8px;opacity:0.7;">Scan early. Communicate early. React immediately.</div>
+            <div style="font-size:12px;color:var(--green-dark);margin-bottom:8px;opacity:0.7;">Relentless effort. Communicate early, specific, and constantly. Play forward — be brave with the ball.</div>
             <div class="idp-review-comparison">
               <div class="idp-review-attr-col"><div class="idp-review-attr-name">Rating</div></div>
               ${monthlyReports.map(r => {
