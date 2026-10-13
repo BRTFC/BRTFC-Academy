@@ -243,7 +243,7 @@ window.switchView = function(v, btn) {
 
   if (v === 'training')  initTrainingView();
   if (v === 'fitness')   initFitnessView();
-  if (v === 'teamreview') { document.getElementById('tr-review-output').innerHTML = ''; }
+  if (v === 'teamreview') { document.getElementById('tr-review-output').innerHTML = ''; window.checkMissingSessions(); }
   if (v === 'match')     initMatchView();
   if (v === 'monthly')   initMonthlyView();
   if (v === 'admin')     renderAdminPlayers();
@@ -2033,6 +2033,52 @@ function getAttendanceForPlayer(pid) {
 }
 
 // ── TEAM REVIEW ──────────────────────────────────────────────────
+
+// ── MISSING SESSIONS CHECK ───────────────────────────────────────
+// Scheduled training days per group (JS getDay: Tue=2, Thu=4, Fri=5)
+const TRAINING_DAYS = { U14:[2,5], U15:[2,5], U16:[2,4], U18:[2,4] };
+
+window.checkMissingSessions = function() {
+  const out = document.getElementById('tr-missing-output');
+  if (!out) return;
+  const fromInput = (document.getElementById('tr-missing-from') || {}).value || '';
+  const fmt = (d) => d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+  const iso = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const groups = coachPhaseGroups().filter(g => TRAINING_DAYS[g]);
+  if (!groups.length) { out.innerHTML = '<div class="empty-state">No age groups to check.</div>'; return; }
+
+  let html = '';
+  groups.forEach(g => {
+    const trainDates = new Set(Object.values(allTraining).filter(t => t.group === g && t.date).map(t => t.date));
+    const matchDates = new Set(Object.values(allMatches).filter(m => m.group === g && m.date).map(m => m.date));
+    const all = [...trainDates, ...matchDates].sort();
+    if (!all.length && !fromInput) {
+      html += '<div class="form-card" style="margin-bottom:10px;"><strong>' + g + '</strong><div style="font-size:13px;color:var(--text2);margin-top:4px;">No sessions saved yet, so there is no start date to check from. Set a "Check from" date.</div></div>';
+      return;
+    }
+    const startStr = fromInput || all[0];
+    const start = new Date(startStr + 'T00:00:00');
+    let expected = 0, covered = 0;
+    const missing = [];
+    for (let d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
+      if (!TRAINING_DAYS[g].includes(d.getDay())) continue;
+      expected++;
+      const k = iso(d);
+      if (trainDates.has(k) || matchDates.has(k)) covered++; else missing.push(fmt(d));
+    }
+    const colour = missing.length ? 'var(--red, #c0392b)' : 'var(--green, #27ae60)';
+    html += '<div class="form-card" style="margin-bottom:10px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;">'
+      + '<strong>' + g + '</strong>'
+      + '<span style="font-size:13px;color:' + colour + ';">' + (missing.length ? missing.length + ' missing' : 'Nothing missing') + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text2);margin:4px 0 6px;">Checked from ' + fmt(start) + '. ' + covered + ' of ' + expected + ' scheduled days have a training or match entry.</div>'
+      + (missing.length ? '<div style="font-size:13px;line-height:1.6;">' + missing.join(' &middot; ') + '</div>' : '')
+      + '</div>';
+  });
+  out.innerHTML = html;
+};
+
 window.renderTeamReview = function() {
   const group  = document.getElementById('tr-review-group').value;
   const output = document.getElementById('tr-review-output');
