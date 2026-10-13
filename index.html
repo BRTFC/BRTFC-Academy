@@ -737,6 +737,17 @@
         <div style="font-size:13px;color:var(--text2);margin-top:4px;">Full season to date. Includes attendance, ratings, DNA compliance, and block coverage.</div>
       </div>
       <div class="form-card">
+        <div class="form-section-title">Missing sessions</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Scheduled training days (Tue for all, Fri for U14/U15, Thu for U16/U18) with no training or match entry saved. Today is not checked. Weeks off, such as half term, will show here.</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Check from (optional)</label>
+            <input type="date" id="tr-missing-from" onchange="checkMissingSessions()">
+          </div>
+        </div>
+        <div id="tr-missing-output"></div>
+      </div>
+      <div class="form-card">
         <div class="form-section-title">Select age group</div>
         <div class="form-row">
           <div class="form-group">
